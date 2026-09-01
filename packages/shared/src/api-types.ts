@@ -1,6 +1,7 @@
-import type { groups, cycles } from './schema';
+import type { groups, cycles, questions } from './schema';
 
 export type Group = typeof groups.$inferSelect;
+export type Question = typeof questions.$inferSelect;
 
 // Drizzle infers timestamp columns as `Date`, but every response here goes
 // through JSON (c.json() server-side, res.json() client-side), which
@@ -16,4 +17,18 @@ export interface GroupSummary extends Pick<Group, 'id' | 'name' | 'inviteCode'> 
 
 export interface ListMyGroupsResponse {
   groups: GroupSummary[];
+}
+
+export interface MeetupSuggestionView {
+  id: string;
+  authorName: string;
+  bodyText: string;
+}
+
+export interface CycleDetailResponse {
+  cycle: Cycle;
+  groupName: string;
+  questions: Question[];
+  myAnswers: Record<string, string>; // questionId -> bodyText
+  meetupSuggestions: MeetupSuggestionView[];
 }

@@ -1,4 +1,5 @@
 import { useClerk } from '@clerk/expo';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,10 +29,15 @@ const urgencyStyles: Record<Urgency, { dot: string; text: string }> = {
 };
 
 function GroupCard({ group }: { group: GroupSummary }) {
+  const router = useRouter();
   const status = group.openCycle ? getUrgency(group.openCycle.deadlineAt) : null;
+  const cycleId = group.openCycle?.id;
 
   return (
-    <View className={`w-full gap-2 p-5 ${CARD}`}>
+    <Pressable
+      disabled={!cycleId}
+      onPress={() => cycleId && router.push({ pathname: '/cycles/[id]', params: { id: cycleId } })}
+      className={`w-full gap-2 p-5 ${CARD} ${cycleId ? 'active:opacity-80' : ''}`}>
       <View className="flex-row items-center justify-between">
         <Text className="text-lg font-bold text-charcoal">{group.name}</Text>
         <View className="h-9 w-9 items-center justify-center rounded-full bg-primary/10">
@@ -42,13 +48,13 @@ function GroupCard({ group }: { group: GroupSummary }) {
         <View className="flex-row items-center gap-2">
           <View className={`h-2 w-2 rounded-full ${urgencyStyles[status.urgency].dot}`} />
           <Text className={`text-sm font-medium ${urgencyStyles[status.urgency].text}`}>
-            This month's catch-up · {status.label}
+            This month's catch-up · {status.label} — tap to answer
           </Text>
         </View>
       ) : (
         <Text className="text-sm text-charcoal/50">Next catch-up opens on the 1st 🗓️</Text>
       )}
-    </View>
+    </Pressable>
   );
 }
 
