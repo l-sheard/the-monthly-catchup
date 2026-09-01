@@ -1,5 +1,7 @@
 import { createClerkClient } from '@clerk/backend';
 import { createMiddleware } from 'hono/factory';
+import { createDb } from '../db';
+import { getOrCreateUser } from '../lib/get-or-create-user';
 import type { Bindings, Variables } from '../types';
 
 export const requireAuth = createMiddleware<{ Bindings: Bindings; Variables: Variables }>(
@@ -20,7 +22,11 @@ export const requireAuth = createMiddleware<{ Bindings: Bindings; Variables: Var
       return c.json({ error: 'Invalid or expired session' }, 401);
     }
 
-    c.set('userId', result.toAuth().userId);
+    const db = createDb(c.env.DATABASE_URL);
+    const localUser = await getOrCreateUser(db, clerk, result.toAuth().userId);
+
+    c.set('db', db);
+    c.set('userId', localUser.id);
     await next();
   },
 );

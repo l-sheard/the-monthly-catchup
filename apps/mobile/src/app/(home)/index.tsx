@@ -1,98 +1,142 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { GroupSummary, ListMyGroupsResponse } from '@stay-in-touch/shared';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useApiClient } from '@/lib/api';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+function formatDeadline(deadlineAt: string) {
+  const date = new Date(deadlineAt);
+  const daysLeft = Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (daysLeft < 0) return 'Deadline passed';
+  if (daysLeft === 0) return 'Deadline is today';
+  if (daysLeft === 1) return '1 day left';
+  return `${daysLeft} days left`;
+}
+
+function GroupCard({ group }: { group: GroupSummary }) {
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <View className="w-full rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+      <Text className="text-lg font-semibold text-black dark:text-white">{group.name}</Text>
+      {group.openCycle ? (
+        <Text className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+          This month's cycle is open · {formatDeadline(group.openCycle.deadlineAt)}
+        </Text>
+      ) : (
+        <Text className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+          No cycle open yet — opens on the 1st of the month
+        </Text>
+      )}
+    </View>
   );
 }
 
 export default function HomeScreen() {
+  const { apiFetch } = useApiClient();
+  const [groups, setGroups] = useState<GroupSummary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'list' | 'create' | 'join'>('list');
+  const [inputValue, setInputValue] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadGroups = useCallback(async () => {
+    try {
+      const data = await apiFetch<ListMyGroupsResponse>('/groups');
+      setGroups(data.groups);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load groups');
+    }
+  }, [apiFetch]);
+
+  useEffect(() => {
+    loadGroups();
+  }, [loadGroups]);
+
+  const onSubmit = useCallback(async () => {
+    if (!inputValue.trim()) return;
+    setSubmitting(true);
+    try {
+      if (mode === 'create') {
+        await apiFetch('/groups', { method: 'POST', body: JSON.stringify({ name: inputValue.trim() }) });
+      } else if (mode === 'join') {
+        await apiFetch('/groups/join', {
+          method: 'POST',
+          body: JSON.stringify({ inviteCode: inputValue.trim() }),
+        });
+      }
+      setInputValue('');
+      setMode('list');
+      await loadGroups();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [apiFetch, inputValue, mode, loadGroups]);
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <SafeAreaView className="flex-1 bg-white dark:bg-black">
+      <ScrollView contentContainerClassName="items-center px-6 py-6 gap-4" className="flex-1">
+        <Text className="w-full max-w-sm text-2xl font-bold text-black dark:text-white">Your groups</Text>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        {error && <Text className="w-full max-w-sm text-sm text-red-500">{error}</Text>}
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        {groups === null && !error && <ActivityIndicator className="mt-8" />}
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        {groups?.length === 0 && mode === 'list' && (
+          <Text className="w-full max-w-sm text-neutral-500 dark:text-neutral-400">
+            You're not in any group yet — create one or join with an invite code.
+          </Text>
+        )}
+
+        {groups?.map((group) => <GroupCard key={group.id} group={group} />)}
+
+        {mode === 'list' ? (
+          <View className="w-full max-w-sm flex-row gap-3">
+            <Pressable
+              onPress={() => setMode('create')}
+              className="flex-1 items-center rounded-full bg-black px-4 py-3 active:opacity-80 dark:bg-white">
+              <Text className="font-semibold text-white dark:text-black">Create group</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setMode('join')}
+              className="flex-1 items-center rounded-full border border-black px-4 py-3 active:opacity-70 dark:border-white">
+              <Text className="font-semibold text-black dark:text-white">Join group</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View className="w-full max-w-sm gap-3">
+            <TextInput
+              autoFocus
+              value={inputValue}
+              onChangeText={setInputValue}
+              placeholder={mode === 'create' ? 'Group name' : 'Invite code'}
+              placeholderTextColor="#a3a3a3"
+              autoCapitalize={mode === 'create' ? 'words' : 'none'}
+              className="rounded-xl border border-neutral-300 px-4 py-3 text-black dark:border-neutral-700 dark:text-white"
+            />
+            <View className="flex-row gap-3">
+              <Pressable
+                disabled={submitting}
+                onPress={onSubmit}
+                className="flex-1 items-center rounded-full bg-black px-4 py-3 active:opacity-80 disabled:opacity-50 dark:bg-white">
+                <Text className="font-semibold text-white dark:text-black">
+                  {submitting ? 'Saving…' : mode === 'create' ? 'Create' : 'Join'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setMode('list');
+                  setInputValue('');
+                }}
+                className="flex-1 items-center rounded-full border border-neutral-300 px-4 py-3 active:opacity-70 dark:border-neutral-700">
+                <Text className="font-semibold text-black dark:text-white">Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-});

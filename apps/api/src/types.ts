@@ -5,6 +5,10 @@ export interface Bindings {
   MEDIA_BUCKET: R2Bucket;
 }
 
+import type { Db } from './db';
+
 export interface Variables {
+  /** Our own users.id (uuid) — resolved from the Clerk session by requireAuth, never Clerk's raw user ID. */
   userId: string;
+  db: Db;
 }
