@@ -41,6 +41,12 @@ export default function SignInScreen() {
             Continue with Google
           </Text>
         </Pressable>
+
+        {/* Mount point for Clerk's bot-protection widget (Smart CAPTCHA). Our
+            combined flow can create a new account via SSO, not just sign in
+            to an existing one, so Clerk still wants this present. Invisible
+            unless Clerk decides a visible challenge is needed. */}
+        <View nativeID="clerk-captcha" />
       </View>
     </SafeAreaView>
   );
