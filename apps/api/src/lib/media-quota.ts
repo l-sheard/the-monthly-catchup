@@ -1,6 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { answers, media } from '@stay-in-touch/shared/schema';
-import { MEDIA_LIMITS } from '@stay-in-touch/shared/validators';
+import { MEDIA_LIMITS, TOTAL_STORAGE_BUDGET_BYTES } from '@stay-in-touch/shared/validators';
 import type { Db } from '../db';
 
 /**
@@ -23,5 +23,23 @@ export async function assertUnderMediaQuota(
 
   if (count >= MEDIA_LIMITS[kind].maxPerCycle) {
     throw new Error('MEDIA_QUOTA_EXCEEDED');
+  }
+}
+
+/**
+ * Hard global cutoff: reject the upload outright if accepting it would push
+ * total stored bytes (summed from our own records, not an R2 API call —
+ * cheaper and immediately consistent) past TOTAL_STORAGE_BUDGET_BYTES. This
+ * is the backstop that catches everything the per-user quota above can't:
+ * lots of groups, a bug, anything. Call it right before issuing an upload
+ * URL, alongside assertUnderMediaQuota.
+ */
+export async function assertUnderStorageBudget(db: Db, incomingSizeBytes: number) {
+  const [{ totalBytes }] = await db
+    .select({ totalBytes: sql<number>`coalesce(sum(${media.sizeBytes}), 0)::bigint` })
+    .from(media);
+
+  if (Number(totalBytes) + incomingSizeBytes > TOTAL_STORAGE_BUDGET_BYTES) {
+    throw new Error('STORAGE_BUDGET_EXCEEDED');
   }
 }

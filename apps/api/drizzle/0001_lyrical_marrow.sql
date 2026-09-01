@@ -1,0 +1,1 @@
+ALTER TABLE "media" ADD COLUMN "size_bytes" integer NOT NULL;

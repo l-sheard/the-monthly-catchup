@@ -23,6 +23,11 @@ export const MEDIA_LIMITS = {
   audio: { maxSizeBytes: 5 * 1024 * 1024, maxPerCycle: 1 }, // 5MB/file (~2min), 1/person/cycle
 } as const;
 
+// Hard global cutoff, on top of the per-file/per-cycle limits above. R2's
+// free tier is 10GB; stop accepting new uploads at 9GB so there's headroom
+// before anything would actually start costing money.
+export const TOTAL_STORAGE_BUDGET_BYTES = 9 * 1024 * 1024 * 1024;
+
 export const uploadMediaInput = z.discriminatedUnion('kind', [
   z.object({
     answerId: z.uuid(),

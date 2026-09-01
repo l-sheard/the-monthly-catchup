@@ -106,6 +106,7 @@ export const media = pgTable('media', {
     .references(() => answers.id, { onDelete: 'cascade' }),
   kind: mediaKind('kind').notNull(),
   storagePath: text('storage_path').notNull(),
+  sizeBytes: integer('size_bytes').notNull(),
   durationSeconds: integer('duration_seconds'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
