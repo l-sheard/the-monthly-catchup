@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { GroupSummary, ListMyGroupsResponse } from '@stay-in-touch/shared';
 
 import { useApiClient } from '@/lib/api';
+import { BottomTabInset, WebTopBarInset } from '@/constants/theme';
 
 type Urgency = 'plenty' | 'soon' | 'today' | 'passed';
 
@@ -102,7 +103,13 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-cream dark:bg-charcoal">
-      <ScrollView contentContainerClassName="items-center px-6 py-6 gap-4" className="flex-1">
+      <ScrollView
+        contentContainerClassName="items-center px-6 py-6 gap-4"
+        className="flex-1"
+        contentContainerStyle={{
+          paddingTop: Platform.OS === 'web' ? WebTopBarInset : undefined,
+          paddingBottom: Platform.OS !== 'web' ? BottomTabInset : undefined,
+        }}>
         <View className="w-full max-w-sm">
           <Text className="text-3xl font-extrabold text-charcoal dark:text-cream">Your groups</Text>
           <Text className="mt-1 text-sm text-charcoal/50 dark:text-cream/50">
