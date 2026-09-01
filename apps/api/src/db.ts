@@ -1,0 +1,10 @@
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon } from '@neondatabase/serverless';
+import * as schema from '@stay-in-touch/shared/schema';
+
+export function createDb(databaseUrl: string) {
+  const sql = neon(databaseUrl);
+  return drizzle(sql, { schema });
+}
+
+export type Db = ReturnType<typeof createDb>;

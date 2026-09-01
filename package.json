@@ -1,0 +1,19 @@
+{
+  "name": "stay-in-touch",
+  "private": true,
+  "packageManager": "pnpm@10.5.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "workerd"]
+  },
+  "scripts": {
+    "mobile": "pnpm --filter @stay-in-touch/mobile start",
+    "api:dev": "pnpm --filter @stay-in-touch/api dev",
+    "api:deploy": "pnpm --filter @stay-in-touch/api deploy",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  }
+}
