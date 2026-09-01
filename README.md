@@ -27,7 +27,7 @@ packages/
 | Database | Neon (serverless Postgres) + Drizzle | Relational data model, scale-to-zero (no pause-and-restore like Supabase's free tier) |
 | Storage | Cloudflare R2 | Photos + voice notes, S3-compatible, zero egress fees |
 | Email | Resend + React Email | Newsletter delivery |
-| Jobs | Inngest | Cycle open, deadline reminders, compile + send |
+| Jobs | Cloudflare Cron Triggers | Cycle open, deadline reminders, compile + send — built into Workers, no extra account |
 | Store distribution | EAS Build/Submit | Apple Developer ($99/yr) + Google Play ($25 one-time) |
 
 There is no database-level Row-Level-Security here (that was a Supabase-specific

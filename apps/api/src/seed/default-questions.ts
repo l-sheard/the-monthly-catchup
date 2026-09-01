@@ -1,0 +1,31 @@
+import { eq } from 'drizzle-orm';
+import { questions } from '@stay-in-touch/shared/schema';
+import type { Db } from '../db';
+
+const DEFAULT_QUESTIONS = [
+  { promptText: 'What have you been up to this month?', type: 'text', sortOrder: 0 },
+  {
+    promptText: 'What are your monthly favourites? (TV, books, music, films — share recs with the group)',
+    type: 'favourites',
+    sortOrder: 1,
+  },
+  { promptText: 'Got a recipe or something else you want to share?', type: 'recipe', sortOrder: 2 },
+  { promptText: 'Share a photo from your month', type: 'photo', sortOrder: 3 },
+  { promptText: 'Record a voice note for the group', type: 'voice', sortOrder: 4 },
+  { promptText: 'Any suggestions for the next meetup?', type: 'meetup', sortOrder: 5 },
+] as const;
+
+/** Idempotent: only inserts if no default (groupId: null) questions exist yet. */
+export async function seedDefaultQuestions(db: Db) {
+  const [existing] = await db.select().from(questions).where(eq(questions.isDefault, true)).limit(1);
+
+  if (existing) {
+    return { inserted: 0, reason: 'already seeded' as const };
+  }
+
+  await db.insert(questions).values(
+    DEFAULT_QUESTIONS.map((q) => ({ ...q, groupId: null, isDefault: true })),
+  );
+
+  return { inserted: DEFAULT_QUESTIONS.length };
+}
