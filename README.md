@@ -41,11 +41,22 @@ before touching group data.
 pnpm install
 
 # API (Hono / Cloudflare Workers)
-cp apps/api/.dev.vars.example apps/api/.dev.vars   # fill in DATABASE_URL, CLERK_SECRET_KEY, RESEND_API_KEY
+cp apps/api/.dev.vars.example apps/api/.dev.vars   # fill in CLERK_SECRET_KEY, RESEND_API_KEY (DATABASE_URL is already set — see below)
 pnpm api:dev
 
 # Mobile app
 pnpm mobile        # then press w for web, i for iOS simulator, a for Android
+```
+
+### Database (Neon)
+
+The repo is linked to a real Neon project (`[neon-project]`, "Stay in touch")
+via `neon.ts` / `.neon`. The `production` branch already has all 10 tables applied.
+
+```bash
+neon status                 # see the linked branch's live config
+neon checkout dev-<feature> # spin up an isolated branch per feature (branch-first flow)
+cd apps/api && pnpm db:generate && pnpm db:migrate   # after changing packages/shared/src/schema.ts
 ```
 
 ## Data model
