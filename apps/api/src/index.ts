@@ -4,6 +4,7 @@ import { createDb } from './db';
 import { openCyclesForToday } from './jobs/open-cycles';
 import { cyclesRoute } from './routes/cycles';
 import { groupsRoute } from './routes/groups';
+import { mediaRoute } from './routes/media';
 import type { Bindings, Variables } from './types';
 
 export const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -25,6 +26,7 @@ app.get('/health', (c) => c.json({ ok: true }));
 
 app.route('/groups', groupsRoute);
 app.route('/cycles', cyclesRoute);
+app.route('/media', mediaRoute);
 
 export default {
   fetch: app.fetch,

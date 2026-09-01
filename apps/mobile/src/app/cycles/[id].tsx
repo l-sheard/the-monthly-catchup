@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CycleDetailResponse } from '@stay-in-touch/shared';
 
 import { useApiClient } from '@/lib/api';
+import { MediaAttachment } from '@/components/media-attachment';
 
 const CARD = 'rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-black/5';
 
@@ -168,10 +169,21 @@ export default function CycleDetailScreen() {
                     multiline
                     value={draftAnswers[q.id] ?? ''}
                     onChangeText={(text) => setDraftAnswers((prev) => ({ ...prev, [q.id]: text }))}
-                    placeholder="Your answer…"
+                    placeholder={
+                      q.type === 'photo' || q.type === 'voice' ? 'Caption (optional)…' : 'Your answer…'
+                    }
                     placeholderTextColor="#A3A3A3"
                     className="min-h-[64px] rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-charcoal"
                   />
+                  {(q.type === 'photo' || q.type === 'voice') && (
+                    <MediaAttachment
+                      cycleId={data.cycle.id}
+                      questionId={q.id}
+                      kind={q.type === 'photo' ? 'photo' : 'audio'}
+                      existingCount={data.myMedia[q.id]?.length ?? 0}
+                      onUploaded={load}
+                    />
+                  )}
                 </View>
               ))}
               <Pressable

@@ -25,10 +25,17 @@ export interface MeetupSuggestionView {
   bodyText: string;
 }
 
+export interface MediaView {
+  id: string;
+  kind: 'photo' | 'audio';
+  durationSeconds: number | null;
+}
+
 export interface CycleDetailResponse {
   cycle: Cycle;
   groupName: string;
   questions: Question[];
   myAnswers: Record<string, string>; // questionId -> bodyText
+  myMedia: Record<string, MediaView[]>; // questionId -> attached media
   meetupSuggestions: MeetupSuggestionView[];
 }

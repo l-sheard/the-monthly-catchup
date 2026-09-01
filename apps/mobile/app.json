@@ -35,7 +35,20 @@
           "imageWidth": 76
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow The Monthly Catch-Up to use your microphone to record a voice note for your group."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow The Monthly Catch-Up to access your photos so you can share one with your group.",
+          "cameraPermission": "Allow The Monthly Catch-Up to use your camera so you can take a photo to share."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

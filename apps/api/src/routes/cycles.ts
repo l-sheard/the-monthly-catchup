@@ -1,8 +1,17 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { submitAnswerInput, submitMeetupSuggestionInput } from '@stay-in-touch/shared/validators';
-import { answers, cycles, groups, meetupSuggestions, questions, users } from '@stay-in-touch/shared/schema';
+import {
+  answers,
+  cycles,
+  groups,
+  media,
+  meetupSuggestions,
+  questions,
+  users,
+} from '@stay-in-touch/shared/schema';
+import type { MediaView } from '@stay-in-touch/shared';
 import type { CycleDetailResponse } from '@stay-in-touch/shared';
 import { requireAuth } from '../middleware/auth';
 import { assertGroupMember } from '../lib/authz';
@@ -36,12 +45,34 @@ cyclesRoute.get('/:id', async (c) => {
     .orderBy(questions.sortOrder);
 
   const myAnswerRows = await db
-    .select({ questionId: answers.questionId, bodyText: answers.bodyText })
+    .select({ id: answers.id, questionId: answers.questionId, bodyText: answers.bodyText })
     .from(answers)
     .where(and(eq(answers.cycleId, cycleId), eq(answers.userId, userId)));
 
   const myAnswers: Record<string, string> = {};
-  for (const row of myAnswerRows) myAnswers[row.questionId] = row.bodyText ?? '';
+  const questionIdByAnswerId = new Map<string, string>();
+  for (const row of myAnswerRows) {
+    myAnswers[row.questionId] = row.bodyText ?? '';
+    questionIdByAnswerId.set(row.id, row.questionId);
+  }
+
+  const myMedia: Record<string, MediaView[]> = {};
+  if (myAnswerRows.length > 0) {
+    const mediaRows = await db
+      .select({ id: media.id, kind: media.kind, durationSeconds: media.durationSeconds, answerId: media.answerId })
+      .from(media)
+      .where(
+        inArray(
+          media.answerId,
+          myAnswerRows.map((r) => r.id),
+        ),
+      );
+    for (const row of mediaRows) {
+      const questionId = questionIdByAnswerId.get(row.answerId);
+      if (!questionId) continue;
+      (myMedia[questionId] ??= []).push({ id: row.id, kind: row.kind, durationSeconds: row.durationSeconds });
+    }
+  }
 
   const suggestionRows = await db
     .select({ id: meetupSuggestions.id, bodyText: meetupSuggestions.bodyText, authorName: users.name })
@@ -58,6 +89,7 @@ cyclesRoute.get('/:id', async (c) => {
     groupName: group?.name ?? '',
     questions: cycleQuestions,
     myAnswers,
+    myMedia,
     meetupSuggestions: suggestionRows,
   };
 

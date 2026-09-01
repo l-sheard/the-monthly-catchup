@@ -1,0 +1,133 @@
+import { Hono } from 'hono';
+import { and, eq } from 'drizzle-orm';
+import { answers, cycles, media as mediaTable } from '@stay-in-touch/shared/schema';
+import { MEDIA_LIMITS } from '@stay-in-touch/shared/validators';
+import { requireAuth } from '../middleware/auth';
+import { assertGroupMember } from '../lib/authz';
+import { assertUnderMediaQuota, assertUnderStorageBudget } from '../lib/media-quota';
+import type { Bindings, Variables } from '../types';
+
+export const mediaRoute = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+
+mediaRoute.use('*', requireAuth);
+
+// Uploads go straight through the Worker to R2 (not a presigned URL) — files
+// are capped at 8MB, well within what a Worker can comfortably handle, and
+// this way every upload is validated (size, quota, membership) before a
+// single byte is written to storage, not just before the DB row is created.
+mediaRoute.post('/cycles/:cycleId/questions/:questionId', async (c) => {
+  const db = c.get('db');
+  const userId = c.get('userId');
+  const cycleId = c.req.param('cycleId');
+  const questionId = c.req.param('questionId');
+
+  const [cycle] = await db.select().from(cycles).where(eq(cycles.id, cycleId)).limit(1);
+  if (!cycle) return c.json({ error: 'Cycle not found' }, 404);
+
+  try {
+    await assertGroupMember(db, cycle.groupId, userId);
+  } catch {
+    return c.json({ error: 'Not a member of this group' }, 403);
+  }
+
+  const body = await c.req.parseBody();
+  const file = body['file'];
+  const kind = body['kind'];
+  const durationSecondsRaw = body['durationSeconds'];
+
+  if (!(file instanceof File)) return c.json({ error: 'Missing file' }, 400);
+  if (kind !== 'photo' && kind !== 'audio') return c.json({ error: 'kind must be photo or audio' }, 400);
+
+  const sizeBytes = file.size;
+  const limits = MEDIA_LIMITS[kind];
+  if (sizeBytes > limits.maxSizeBytes) {
+    return c.json(
+      { error: `File too large — max ${Math.round(limits.maxSizeBytes / (1024 * 1024))}MB` },
+      400,
+    );
+  }
+
+  try {
+    await assertUnderMediaQuota(db, cycleId, userId, kind);
+    await assertUnderStorageBudget(db, sizeBytes);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : 'Quota exceeded';
+    const message =
+      reason === 'MEDIA_QUOTA_EXCEEDED'
+        ? `You've already hit the ${limits.maxPerCycle} ${kind} limit for this month`
+        : "This group's storage is full for now — ask about upgrading the R2 plan";
+    return c.json({ error: message }, 429);
+  }
+
+  // Find or create the answer this media attaches to — a photo/voice
+  // question might have no typed answer at all, just the attachment.
+  const [existingAnswer] = await db
+    .select()
+    .from(answers)
+    .where(and(eq(answers.cycleId, cycleId), eq(answers.userId, userId), eq(answers.questionId, questionId)))
+    .limit(1);
+
+  const answerId =
+    existingAnswer?.id ??
+    (
+      await db
+        .insert(answers)
+        .values({ cycleId, userId, questionId, bodyText: '' })
+        .returning({ id: answers.id })
+    )[0].id;
+
+  const contentType = file.type || (kind === 'photo' ? 'image/jpeg' : 'audio/m4a');
+  const storagePath = `media/${answerId}/${crypto.randomUUID()}`;
+  await c.env.MEDIA_BUCKET.put(storagePath, await file.arrayBuffer(), {
+    httpMetadata: { contentType },
+  });
+
+  const durationSeconds = durationSecondsRaw ? Number(durationSecondsRaw) : null;
+
+  const [mediaRow] = await db
+    .insert(mediaTable)
+    .values({ answerId, kind, storagePath, sizeBytes, durationSeconds })
+    .returning();
+
+  return c.json({ media: mediaRow }, 201);
+});
+
+// Authenticated read — the bucket itself is private, so this is the only
+// way to fetch a file back, gated by the same group-membership check as
+// everything else. Not reachable from a plain <img src> (no way to attach
+// an Authorization header there); in-app viewing fetches this and renders
+// the response as a blob instead.
+mediaRoute.get('/:id', async (c) => {
+  const db = c.get('db');
+  const userId = c.get('userId');
+  const mediaId = c.req.param('id');
+
+  const [row] = await db
+    .select({
+      storagePath: mediaTable.storagePath,
+      groupId: cycles.groupId,
+    })
+    .from(mediaTable)
+    .innerJoin(answers, eq(mediaTable.answerId, answers.id))
+    .innerJoin(cycles, eq(answers.cycleId, cycles.id))
+    .where(eq(mediaTable.id, mediaId))
+    .limit(1);
+
+  if (!row) return c.json({ error: 'Not found' }, 404);
+
+  try {
+    await assertGroupMember(db, row.groupId, userId);
+  } catch {
+    return c.json({ error: 'Not a member of this group' }, 403);
+  }
+
+  const object = await c.env.MEDIA_BUCKET.get(row.storagePath);
+  if (!object) return c.json({ error: 'File missing from storage' }, 404);
+
+  return new Response(object.body, {
+    headers: {
+      'Content-Type': object.httpMetadata?.contentType ?? 'application/octet-stream',
+      'Cache-Control': 'private, max-age=3600',
+    },
+  });
+});

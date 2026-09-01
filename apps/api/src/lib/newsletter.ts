@@ -1,9 +1,10 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import {
   answers,
   cycles,
   groupMembers,
   groups,
+  media,
   meetupSuggestions,
   newsletters,
   questions,
@@ -25,7 +26,11 @@ export function renderNewsletterHtml(params: {
   groupName: string;
   month: number;
   year: number;
-  answersByMember: Array<{ memberName: string; answers: Array<{ prompt: string; body: string }> }>;
+  answersByMember: Array<{
+    memberName: string;
+    answers: Array<{ prompt: string; body: string }>;
+    mediaNote: string | null;
+  }>;
   suggestions: Array<{ authorName: string; bodyText: string }>;
 }) {
   const monthName = new Date(Date.UTC(params.year, params.month - 1, 1)).toLocaleString('en-US', {
@@ -45,6 +50,11 @@ export function renderNewsletterHtml(params: {
           `,
             )
             .join('')}
+          ${
+            member.mediaNote
+              ? `<p style="margin:0;font-size:13px;color:#FF6B4A;">${escapeHtml(member.mediaNote)}</p>`
+              : ''
+          }
         </td></tr>`,
     )
     .join('');
@@ -115,21 +125,52 @@ export async function sendNewsletterForCycle(
 
   const allAnswers = await db.select().from(answers).where(eq(answers.cycleId, cycleId));
   const answersByUserId = new Map<string, Map<string, string>>();
+  const answerIdToUserId = new Map<string, string>();
   for (const a of allAnswers) {
     if (!answersByUserId.has(a.userId)) answersByUserId.set(a.userId, new Map());
     answersByUserId.get(a.userId)!.set(a.questionId, a.bodyText ?? '');
+    answerIdToUserId.set(a.id, a.userId);
+  }
+
+  // Real inline photo/audio embedding needs signed, time-limited URLs (the
+  // bucket is private, and an email client can't send an Authorization
+  // header) — that's a follow-up, not built yet. For now the newsletter
+  // just names what was attached; the actual files are viewable in the app.
+  const mediaCountsByUserId = new Map<string, Map<'photo' | 'audio', number>>();
+  if (allAnswers.length > 0) {
+    const mediaRows = await db
+      .select({ kind: media.kind, answerId: media.answerId })
+      .from(media)
+      .where(
+        inArray(
+          media.answerId,
+          allAnswers.map((a) => a.id),
+        ),
+      );
+    for (const row of mediaRows) {
+      const uid = answerIdToUserId.get(row.answerId);
+      if (!uid) continue;
+      if (!mediaCountsByUserId.has(uid)) mediaCountsByUserId.set(uid, new Map());
+      const counts = mediaCountsByUserId.get(uid)!;
+      counts.set(row.kind, (counts.get(row.kind) ?? 0) + 1);
+    }
   }
 
   const answersByMember = members
     .map((member) => {
       const theirAnswers = answersByUserId.get(member.id);
       if (!theirAnswers || theirAnswers.size === 0) return null; // skip members who answered nothing
+      const counts = mediaCountsByUserId.get(member.id);
+      const parts: string[] = [];
+      if (counts?.get('photo')) parts.push(`📸 ${counts.get('photo')} photo${counts.get('photo')! > 1 ? 's' : ''}`);
+      if (counts?.get('audio')) parts.push(`🎙️ ${counts.get('audio')} voice note`);
       return {
         memberName: member.name,
         answers: allQuestions.map((q) => ({
           prompt: q.promptText,
           body: theirAnswers.get(q.id) ?? '',
         })),
+        mediaNote: parts.length ? `${parts.join(' · ')} attached — view in the app` : null,
       };
     })
     .filter((m): m is NonNullable<typeof m> => m !== null);
