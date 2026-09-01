@@ -41,3 +41,9 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .neon
+
+# vendor-provided AI agent skills — regenerable (neon skills -y /
+# npx skills add clerk/skills), not project code, not worth tracking
+.claude/skills/
+.agents/
+skills-lock.json
