@@ -7,6 +7,8 @@ import type { GroupSummary, ListMyGroupsResponse } from '@stay-in-touch/shared';
 import { useApiClient } from '@/lib/api';
 import { BottomTabInset, WebTopBarInset } from '@/constants/theme';
 
+const CARD = 'rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-black/5';
+
 type Urgency = 'plenty' | 'soon' | 'today' | 'passed';
 
 function getUrgency(deadlineAt: string): { urgency: Urgency; label: string } {
@@ -29,10 +31,12 @@ function GroupCard({ group }: { group: GroupSummary }) {
   const status = group.openCycle ? getUrgency(group.openCycle.deadlineAt) : null;
 
   return (
-    <View className="w-full gap-2 rounded-2xl bg-sand p-4">
+    <View className={`w-full gap-2 p-5 ${CARD}`}>
       <View className="flex-row items-center justify-between">
         <Text className="text-lg font-bold text-charcoal">{group.name}</Text>
-        <Text className="text-xl">👋</Text>
+        <View className="h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+          <Text className="text-base">👋</Text>
+        </View>
       </View>
       {status ? (
         <View className="flex-row items-center gap-2">
@@ -102,95 +106,97 @@ export default function HomeScreen() {
   }, [apiFetch, inputValue, mode, loadGroups]);
 
   return (
-    <SafeAreaView className="flex-1 bg-cream">
+    <SafeAreaView className="flex-1 bg-neutral-50">
       <ScrollView
-        contentContainerClassName="items-center px-6 py-6 gap-4"
+        contentContainerClassName="items-center px-6 py-8 gap-4"
         className="flex-1"
         contentContainerStyle={{
           paddingTop: Platform.OS === 'web' ? WebTopBarInset : undefined,
           paddingBottom: Platform.OS !== 'web' ? BottomTabInset : undefined,
         }}>
-        <View className="w-full max-w-sm flex-row items-start justify-between">
+        <View className="w-full max-w-xl flex-row items-start justify-between">
           <View>
-            <Text className="text-3xl font-extrabold text-charcoal">Your groups</Text>
+            <Text className="text-3xl font-extrabold tracking-tight text-charcoal">Your groups</Text>
             <Text className="mt-1 text-sm text-charcoal/50">
               Everyone's monthly catch-ups, in one place.
             </Text>
           </View>
-          <Pressable
-            onPress={() => signOut()}
-            className="rounded-full bg-sand px-3 py-2 active:opacity-70">
-            <Text className="text-sm font-medium text-charcoal/70">Sign out</Text>
+          <Pressable onPress={() => signOut()} className="rounded-lg px-3 py-2 active:opacity-60">
+            <Text className="text-sm font-medium text-charcoal/50">Sign out</Text>
           </Pressable>
         </View>
 
         {error && (
-          <Text className="w-full max-w-sm rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-600">
+          <Text className="w-full max-w-xl rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">
             {error}
           </Text>
         )}
 
         {groups === null && !error && <ActivityIndicator className="mt-8" color="#FF6B4A" />}
 
-        {groups?.length === 0 && mode === 'list' && (
-          <View className="w-full max-w-sm items-center gap-2 rounded-2xl bg-sand py-8">
-            <Text className="text-4xl">🎉</Text>
-            <Text className="text-center text-base font-medium text-charcoal">No groups yet</Text>
-            <Text className="max-w-[240px] text-center text-sm text-charcoal/50">
-              Start one with your friends, or join with an invite code.
-            </Text>
-          </View>
-        )}
+        <View className="w-full max-w-xl gap-4">
+          {groups?.length === 0 && mode === 'list' && (
+            <View className={`items-center gap-2 px-6 py-10 ${CARD}`}>
+              <View className="mb-1 h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                <Text className="text-2xl">🎉</Text>
+              </View>
+              <Text className="text-center text-base font-semibold text-charcoal">No groups yet</Text>
+              <Text className="max-w-[260px] text-center text-sm text-charcoal/50">
+                Start one with your friends, or join with an invite code.
+              </Text>
+            </View>
+          )}
 
-        {groups?.map((group) => <GroupCard key={group.id} group={group} />)}
+          {groups?.map((group) => <GroupCard key={group.id} group={group} />)}
 
-        {mode === 'list' ? (
-          <View className="w-full max-w-sm flex-row gap-3">
-            <Pressable
-              onPress={() => setMode('create')}
-              className="flex-1 items-center rounded-full bg-primary px-4 py-3 active:opacity-85">
-              <Text className="font-semibold text-white">✨ Create group</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setMode('join')}
-              className="flex-1 items-center rounded-full bg-sand px-4 py-3 active:opacity-70">
-              <Text className="font-semibold text-charcoal">Join group</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View className="w-full max-w-sm gap-3 rounded-2xl bg-sand p-4">
-            <Text className="font-semibold text-charcoal">
-              {mode === 'create' ? '✨ Name your group' : '🔑 Got an invite code?'}
-            </Text>
-            <TextInput
-              autoFocus
-              value={inputValue}
-              onChangeText={setInputValue}
-              placeholder={mode === 'create' ? 'e.g. The Book Club' : 'Paste it here'}
-              placeholderTextColor="#8A7F76"
-              autoCapitalize={mode === 'create' ? 'words' : 'none'}
-              className="rounded-xl bg-cream px-4 py-3 text-charcoal"
-            />
+          {mode === 'list' ? (
             <View className="flex-row gap-3">
               <Pressable
-                disabled={submitting}
-                onPress={onSubmit}
-                className="flex-1 items-center rounded-full bg-primary px-4 py-3 active:opacity-85 disabled:opacity-50">
-                <Text className="font-semibold text-white">
-                  {submitting ? 'Saving…' : mode === 'create' ? 'Create' : 'Join'}
-                </Text>
+                onPress={() => setMode('create')}
+                className="flex-1 items-center rounded-xl bg-primary px-4 py-3 shadow-sm shadow-primary/30 active:opacity-85">
+                <Text className="font-semibold text-white">✨ Create group</Text>
               </Pressable>
               <Pressable
-                onPress={() => {
-                  setMode('list');
-                  setInputValue('');
-                }}
-                className="flex-1 items-center rounded-full bg-cream px-4 py-3 active:opacity-70">
-                <Text className="font-semibold text-charcoal">Cancel</Text>
+                onPress={() => setMode('join')}
+                className={`flex-1 items-center px-4 py-3 ${CARD} active:opacity-70`}>
+                <Text className="font-semibold text-charcoal">Join group</Text>
               </Pressable>
             </View>
-          </View>
-        )}
+          ) : (
+            <View className={`gap-3 p-5 ${CARD}`}>
+              <Text className="font-semibold text-charcoal">
+                {mode === 'create' ? '✨ Name your group' : '🔑 Got an invite code?'}
+              </Text>
+              <TextInput
+                autoFocus
+                value={inputValue}
+                onChangeText={setInputValue}
+                placeholder={mode === 'create' ? 'e.g. The Book Club' : 'Paste it here'}
+                placeholderTextColor="#A3A3A3"
+                autoCapitalize={mode === 'create' ? 'words' : 'none'}
+                className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-charcoal"
+              />
+              <View className="flex-row gap-3">
+                <Pressable
+                  disabled={submitting}
+                  onPress={onSubmit}
+                  className="flex-1 items-center rounded-xl bg-primary px-4 py-3 shadow-sm shadow-primary/30 active:opacity-85 disabled:opacity-50">
+                  <Text className="font-semibold text-white">
+                    {submitting ? 'Saving…' : mode === 'create' ? 'Create' : 'Join'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setMode('list');
+                    setInputValue('');
+                  }}
+                  className="flex-1 items-center rounded-xl border border-neutral-200 px-4 py-3 active:opacity-70">
+                  <Text className="font-semibold text-charcoal">Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

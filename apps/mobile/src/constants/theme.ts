@@ -67,8 +67,8 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 
-// The web tab bar (app-tabs.web.tsx) floats over the page as an absolutely
-// positioned pill, so nothing pushes page content down for it automatically
+// The web header (app-tabs.web.tsx) floats over the page as an absolutely
+// positioned bar, so nothing pushes page content down for it automatically
 // — screens need to reserve this much top clearance themselves.
-export const WebTopBarInset = 84;
+export const WebTopBarInset = 68;
 export const MaxContentWidth = 800;
