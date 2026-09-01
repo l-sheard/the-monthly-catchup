@@ -28,9 +28,6 @@ dist/
 build/
 .turbo/
 
-# drizzle
-apps/api/drizzle/meta/
-
 # logs
 *.log
 npm-debug.log*
@@ -43,3 +40,4 @@ Thumbs.db
 # editor
 .vscode/*
 !.vscode/extensions.json
+.neon
