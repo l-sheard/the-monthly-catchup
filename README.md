@@ -58,8 +58,12 @@ redirects away if already signed in) and `(home)` (protected, redirects to sign-
 groups; the API verifies the session token server-side in
 `apps/api/src/middleware/auth.ts` — the client-side guards are UX only, not security.
 
-Before it works end-to-end: enable Google under Clerk Dashboard → **User & authentication
-→ Social connections**, and enable **Native applications** for the instance.
+Google sign-in works out of the box in development (Clerk's shared dev OAuth
+credentials, already enabled on the instance). Still needed before a real native
+build can sign in: register the app's bundle ID/package name under Clerk Dashboard
+→ **Native applications** (comes naturally with EAS setup), and before a real
+production release: your own Google OAuth client, plus Sign in with Apple
+alongside it (Apple requires offering it if you offer any third-party sign-in on iOS).
 
 ```bash
 pnpm dlx clerk@latest env pull --app [clerk-app-id]   # refresh keys
@@ -75,6 +79,23 @@ neon status                 # see the linked branch's live config
 neon checkout dev-<feature> # spin up an isolated branch per feature (branch-first flow)
 cd apps/api && pnpm db:generate && pnpm db:migrate   # after changing packages/shared/src/schema.ts
 ```
+
+### API deployment (Cloudflare Workers + R2)
+
+Deployed and verified live at **https://stay-in-touch-api.lara-sheard9.workers.dev**
+(health check, R2 binding, and Clerk-authenticated routes all confirmed working
+over the real internet, not just local dev). The `stay-in-touch-media` R2 bucket
+exists and is bound as `MEDIA_BUCKET`. Secrets (`DATABASE_URL`, `CLERK_SECRET_KEY`,
+`RESEND_API_KEY`) are set on the deployed Worker via `wrangler secret put`, separate
+from the local-only `.dev.vars` file.
+
+```bash
+cd apps/api
+pnpm exec wrangler secret put <NAME>   # update a deployed secret
+pnpm deploy                            # wrangler deploy --minify
+```
+
+`RESEND_API_KEY` is still a placeholder — fine for now since nothing calls Resend yet.
 
 ## Data model
 
