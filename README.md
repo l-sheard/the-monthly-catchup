@@ -48,6 +48,23 @@ pnpm api:dev
 pnpm mobile        # then press w for web, i for iOS simulator, a for Android
 ```
 
+### Auth (Clerk)
+
+Real Clerk app ("Stay In Touch", `[clerk-app-id]`), linked via the
+Clerk CLI. Google sign-in uses the browser SSO flow (`useSSO`), which works across
+Expo Go, dev builds, and web from one code path — see
+`apps/mobile/src/app/(auth)/sign-in.tsx`. Routes are split into `(auth)` (public,
+redirects away if already signed in) and `(home)` (protected, redirects to sign-in)
+groups; the API verifies the session token server-side in
+`apps/api/src/middleware/auth.ts` — the client-side guards are UX only, not security.
+
+Before it works end-to-end: enable Google under Clerk Dashboard → **User & authentication
+→ Social connections**, and enable **Native applications** for the instance.
+
+```bash
+pnpm dlx clerk@latest env pull --app [clerk-app-id]   # refresh keys
+```
+
 ### Database (Neon)
 
 The repo is linked to a real Neon project (`[neon-project]`, "Stay in touch")
