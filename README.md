@@ -95,7 +95,13 @@ pnpm exec wrangler secret put <NAME>   # update a deployed secret
 pnpm deploy                            # wrangler deploy --minify
 ```
 
-`RESEND_API_KEY` is still a placeholder — fine for now since nothing calls Resend yet.
+### Email (Resend)
+
+Real account, real key, verified with an actual test send (see `apps/api/src/lib/email.ts`
+→ `sendEmail`). No custom domain verified yet, so sending is restricted to
+`onboarding@resend.dev` → the account owner's own email only — fine for
+development, not for emailing a real friend group. Verify a domain in the
+Resend dashboard and update `FROM_ADDRESS` in `email.ts` before going live.
 
 ## Data model
 
