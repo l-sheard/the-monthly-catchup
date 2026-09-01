@@ -3,19 +3,19 @@ import { and, eq } from 'drizzle-orm';
 import { answers, cycles, media as mediaTable } from '@stay-in-touch/shared/schema';
 import { MEDIA_LIMITS } from '@stay-in-touch/shared/validators';
 import { requireAuth } from '../middleware/auth';
+import { createDb } from '../db';
 import { assertGroupMember } from '../lib/authz';
 import { assertUnderMediaQuota, assertUnderStorageBudget } from '../lib/media-quota';
+import { verifyMediaUrl } from '../lib/media-signing';
 import type { Bindings, Variables } from '../types';
 
 export const mediaRoute = new Hono<{ Bindings: Bindings; Variables: Variables }>();
-
-mediaRoute.use('*', requireAuth);
 
 // Uploads go straight through the Worker to R2 (not a presigned URL) — files
 // are capped at 8MB, well within what a Worker can comfortably handle, and
 // this way every upload is validated (size, quota, membership) before a
 // single byte is written to storage, not just before the DB row is created.
-mediaRoute.post('/cycles/:cycleId/questions/:questionId', async (c) => {
+mediaRoute.post('/cycles/:cycleId/questions/:questionId', requireAuth, async (c) => {
   const db = c.get('db');
   const userId = c.get('userId');
   const cycleId = c.req.param('cycleId');
@@ -97,7 +97,7 @@ mediaRoute.post('/cycles/:cycleId/questions/:questionId', async (c) => {
 // everything else. Not reachable from a plain <img src> (no way to attach
 // an Authorization header there); in-app viewing fetches this and renders
 // the response as a blob instead.
-mediaRoute.get('/:id', async (c) => {
+mediaRoute.get('/:id', requireAuth, async (c) => {
   const db = c.get('db');
   const userId = c.get('userId');
   const mediaId = c.req.param('id');
@@ -128,6 +128,41 @@ mediaRoute.get('/:id', async (c) => {
     headers: {
       'Content-Type': object.httpMetadata?.contentType ?? 'application/octet-stream',
       'Cache-Control': 'private, max-age=3600',
+    },
+  });
+});
+
+// Deliberately NOT behind requireAuth — this is what makes embedding media in
+// an email possible at all, since a mail client can't attach an Authorization
+// header. Possession of a valid, unexpired HMAC signature (see
+// lib/media-signing.ts) stands in for the Bearer token here; the bucket
+// itself is still private, nothing is reachable without one.
+mediaRoute.get('/:id/public', async (c) => {
+  const mediaId = c.req.param('id');
+  const expires = Number(c.req.query('expires'));
+  const sig = c.req.query('sig');
+
+  if (!sig || !expires || !(await verifyMediaUrl(c.env.MEDIA_SIGNING_SECRET, mediaId, expires, sig))) {
+    return c.json({ error: 'Invalid or expired link' }, 403);
+  }
+
+  const db = createDb(c.env.DATABASE_URL);
+  const [row] = await db
+    .select({ storagePath: mediaTable.storagePath })
+    .from(mediaTable)
+    .where(eq(mediaTable.id, mediaId))
+    .limit(1);
+  if (!row) return c.json({ error: 'Not found' }, 404);
+
+  const object = await c.env.MEDIA_BUCKET.get(row.storagePath);
+  if (!object) return c.json({ error: 'File missing from storage' }, 404);
+
+  return new Response(object.body, {
+    headers: {
+      'Content-Type': object.httpMetadata?.contentType ?? 'application/octet-stream',
+      // Fine to cache publicly — the URL itself is the credential, and it's
+      // already time-limited by the signature.
+      'Cache-Control': 'public, max-age=86400',
     },
   });
 });

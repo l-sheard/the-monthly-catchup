@@ -166,7 +166,7 @@ cyclesRoute.post('/:id/send-newsletter', async (c) => {
   }
 
   try {
-    const result = await sendNewsletterForCycle(db, c.env.RESEND_API_KEY, cycleId);
+    const result = await sendNewsletterForCycle(db, c.env, cycleId);
     return c.json(result);
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : 'Failed to send newsletter' }, 500);

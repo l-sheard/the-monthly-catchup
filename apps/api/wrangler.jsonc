@@ -7,7 +7,10 @@
   "vars": {
     // Publishable keys are designed to be public (same value ships in the
     // mobile app's client bundle) — safe to commit, not a secret.
-    "CLERK_PUBLISHABLE_KEY": "pk_test_bGl2aW5nLWthbmdhcm9vLTE5MjAuY2xlcmsuYWNjb3VudHMuZGV2JA"
+    "CLERK_PUBLISHABLE_KEY": "pk_test_bGl2aW5nLWthbmdhcm9vLTE5MjAuY2xlcmsuYWNjb3VudHMuZGV2JA",
+    // This Worker's own public URL — needed server-side to build absolute
+    // signed media links for newsletter emails. Not a secret either way.
+    "API_BASE_URL": "https://stay-in-touch-api.lara-sheard9.workers.dev"
   },
   "r2_buckets": [
     {

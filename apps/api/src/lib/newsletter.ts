@@ -12,6 +12,7 @@ import {
 } from '@stay-in-touch/shared/schema';
 import type { Db } from '../db';
 import { sendEmail } from './email';
+import { signMediaUrl } from './media-signing';
 
 function escapeHtml(text: string) {
   return text
@@ -19,6 +20,11 @@ function escapeHtml(text: string) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+interface MemberMedia {
+  kind: 'photo' | 'audio';
+  url: string;
 }
 
 /** Builds the compiled newsletter HTML from everyone's answers for a cycle. */
@@ -29,7 +35,7 @@ export function renderNewsletterHtml(params: {
   answersByMember: Array<{
     memberName: string;
     answers: Array<{ prompt: string; body: string }>;
-    mediaNote: string | null;
+    media: MemberMedia[];
   }>;
   suggestions: Array<{ authorName: string; bodyText: string }>;
 }) {
@@ -38,8 +44,29 @@ export function renderNewsletterHtml(params: {
   });
 
   const memberSections = params.answersByMember
-    .map(
-      (member) => `
+    .map((member) => {
+      const photos = member.media.filter((m) => m.kind === 'photo');
+      const audioLinks = member.media.filter((m) => m.kind === 'audio');
+
+      const photosHtml = photos.length
+        ? `<div style="margin:0 0 16px;">
+            ${photos
+              .map(
+                (p) =>
+                  `<img src="${p.url}" width="260" style="max-width:100%;border-radius:12px;margin:0 8px 8px 0;" />`,
+              )
+              .join('')}
+          </div>`
+        : '';
+
+      const audioHtml = audioLinks
+        .map(
+          (a, i) =>
+            `<p style="margin:0 0 8px;"><a href="${a.url}" style="color:#FF6B4A;font-size:14px;font-weight:600;">🎙️ Listen to voice note${audioLinks.length > 1 ? ` #${i + 1}` : ''}</a></p>`,
+        )
+        .join('');
+
+      return `
         <tr><td style="padding:24px 0 8px;border-top:1px solid #eee;">
           <h2 style="font-size:18px;margin:0 0 12px;color:#1C1815;">${escapeHtml(member.memberName)}</h2>
           ${member.answers
@@ -50,13 +77,10 @@ export function renderNewsletterHtml(params: {
           `,
             )
             .join('')}
-          ${
-            member.mediaNote
-              ? `<p style="margin:0;font-size:13px;color:#FF6B4A;">${escapeHtml(member.mediaNote)}</p>`
-              : ''
-          }
-        </td></tr>`,
-    )
+          ${photosHtml}
+          ${audioHtml}
+        </td></tr>`;
+    })
     .join('');
 
   const suggestionsSection = params.suggestions.length
@@ -86,7 +110,7 @@ export function renderNewsletterHtml(params: {
       ${memberSections}
       ${suggestionsSection}
       <tr><td style="padding-top:32px;">
-        <p style="font-size:12px;color:#aaa;">Sent by The Monthly Catch-Up — see everyone's answers any time in the app.</p>
+        <p style="font-size:12px;color:#aaa;">Sent by The Monthly Catch-Up — see everyone's answers any time in the app. Photo/voice-note links in this email expire in 90 days.</p>
       </td></tr>
     </table>
   </body>
@@ -102,7 +126,7 @@ export function renderNewsletterHtml(params: {
  */
 export async function sendNewsletterForCycle(
   db: Db,
-  resendApiKey: string,
+  env: { RESEND_API_KEY: string; MEDIA_SIGNING_SECRET: string; API_BASE_URL: string },
   cycleId: string,
 ): Promise<{ sentTo: string[]; failed: Array<{ email: string; error: string }> }> {
   const [cycle] = await db.select().from(cycles).where(eq(cycles.id, cycleId)).limit(1);
@@ -132,14 +156,13 @@ export async function sendNewsletterForCycle(
     answerIdToUserId.set(a.id, a.userId);
   }
 
-  // Real inline photo/audio embedding needs signed, time-limited URLs (the
-  // bucket is private, and an email client can't send an Authorization
-  // header) — that's a follow-up, not built yet. For now the newsletter
-  // just names what was attached; the actual files are viewable in the app.
-  const mediaCountsByUserId = new Map<string, Map<'photo' | 'audio', number>>();
+  // Signed links (see lib/media-signing.ts) so images/audio can be embedded
+  // directly — the bucket stays private, but an email client can follow a
+  // plain URL where it could never send an Authorization header.
+  const mediaByUserId = new Map<string, MemberMedia[]>();
   if (allAnswers.length > 0) {
     const mediaRows = await db
-      .select({ kind: media.kind, answerId: media.answerId })
+      .select({ id: media.id, kind: media.kind, answerId: media.answerId })
       .from(media)
       .where(
         inArray(
@@ -150,9 +173,10 @@ export async function sendNewsletterForCycle(
     for (const row of mediaRows) {
       const uid = answerIdToUserId.get(row.answerId);
       if (!uid) continue;
-      if (!mediaCountsByUserId.has(uid)) mediaCountsByUserId.set(uid, new Map());
-      const counts = mediaCountsByUserId.get(uid)!;
-      counts.set(row.kind, (counts.get(row.kind) ?? 0) + 1);
+      const { expires, sig } = await signMediaUrl(env.MEDIA_SIGNING_SECRET, row.id);
+      const url = `${env.API_BASE_URL}/media/${row.id}/public?expires=${expires}&sig=${sig}`;
+      if (!mediaByUserId.has(uid)) mediaByUserId.set(uid, []);
+      mediaByUserId.get(uid)!.push({ kind: row.kind, url });
     }
   }
 
@@ -160,17 +184,13 @@ export async function sendNewsletterForCycle(
     .map((member) => {
       const theirAnswers = answersByUserId.get(member.id);
       if (!theirAnswers || theirAnswers.size === 0) return null; // skip members who answered nothing
-      const counts = mediaCountsByUserId.get(member.id);
-      const parts: string[] = [];
-      if (counts?.get('photo')) parts.push(`📸 ${counts.get('photo')} photo${counts.get('photo')! > 1 ? 's' : ''}`);
-      if (counts?.get('audio')) parts.push(`🎙️ ${counts.get('audio')} voice note`);
       return {
         memberName: member.name,
         answers: allQuestions.map((q) => ({
           prompt: q.promptText,
           body: theirAnswers.get(q.id) ?? '',
         })),
-        mediaNote: parts.length ? `${parts.join(' · ')} attached — view in the app` : null,
+        media: mediaByUserId.get(member.id) ?? [],
       };
     })
     .filter((m): m is NonNullable<typeof m> => m !== null);
@@ -199,7 +219,7 @@ export async function sendNewsletterForCycle(
 
   for (const member of members) {
     try {
-      await sendEmail(resendApiKey, { to: member.email, subject, html });
+      await sendEmail(env.RESEND_API_KEY, { to: member.email, subject, html });
       sentTo.push(member.email);
     } catch (err) {
       failed.push({ email: member.email, error: err instanceof Error ? err.message : 'Unknown error' });
