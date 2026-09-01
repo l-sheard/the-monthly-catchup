@@ -14,12 +14,29 @@ export const submitAnswerInput = z.object({
   bodyText: z.string().max(4000).optional(),
 });
 
-export const uploadMediaInput = z.object({
-  answerId: z.uuid(),
-  kind: z.enum(['photo', 'audio']),
-  contentType: z.string(),
-  sizeBytes: z.number().int().positive().max(50 * 1024 * 1024), // 50MB cap
-});
+// Server-side backstop, not a substitute for client-side compression.
+// A monthly cycle produces a handful of photos + one voice note per person,
+// not an unbounded photo dump — keep both the per-file and per-cycle caps
+// small enough that R2's free tier (10GB) lasts indefinitely at real usage.
+export const MEDIA_LIMITS = {
+  photo: { maxSizeBytes: 8 * 1024 * 1024, maxPerCycle: 6 }, // 8MB/file, 6/person/cycle
+  audio: { maxSizeBytes: 5 * 1024 * 1024, maxPerCycle: 1 }, // 5MB/file (~2min), 1/person/cycle
+} as const;
+
+export const uploadMediaInput = z.discriminatedUnion('kind', [
+  z.object({
+    answerId: z.uuid(),
+    kind: z.literal('photo'),
+    contentType: z.string(),
+    sizeBytes: z.number().int().positive().max(MEDIA_LIMITS.photo.maxSizeBytes),
+  }),
+  z.object({
+    answerId: z.uuid(),
+    kind: z.literal('audio'),
+    contentType: z.string(),
+    sizeBytes: z.number().int().positive().max(MEDIA_LIMITS.audio.maxSizeBytes),
+  }),
+]);
 
 export const submitMeetupSuggestionInput = z.object({
   cycleId: z.uuid(),
