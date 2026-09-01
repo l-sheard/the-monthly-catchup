@@ -1,14 +1,9 @@
-/**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
- */
-
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
+// The app is light-only by design (see also colorScheme.set('light') in
+// src/app/_layout.tsx, which locks NativeWind's `dark:` variants off too) —
+// this intentionally ignores the system color scheme rather than following
+// it, unlike the Expo template default.
 export function useTheme() {
-  const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
-
-  return Colors[theme];
+  return Colors.light;
 }

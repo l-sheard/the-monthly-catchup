@@ -30,14 +30,14 @@ export default function SignInScreen() {
   }, [startSSOFlow, router]);
 
   return (
-    <SafeAreaView className="flex-1 items-center justify-center bg-cream px-6 dark:bg-charcoal">
+    <SafeAreaView className="flex-1 items-center justify-center bg-cream px-6">
       <View className="w-full max-w-sm items-center gap-3">
         <Text className="text-6xl">💌</Text>
 
-        <Text className="mt-2 text-center text-3xl font-extrabold text-charcoal dark:text-cream">
+        <Text className="mt-2 text-center text-3xl font-extrabold text-charcoal">
           The Monthly Catch-Up
         </Text>
-        <Text className="text-center text-base leading-6 text-charcoal/60 dark:text-cream/60">
+        <Text className="text-center text-base leading-6 text-charcoal/60">
           One email a month, packed with everything your friends have been up to. Sign in to join
           in.
         </Text>
@@ -45,7 +45,7 @@ export default function SignInScreen() {
         <Pressable
           disabled={loading}
           onPress={onGooglePress}
-          className="mt-6 w-full flex-row items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 active:opacity-85 disabled:opacity-60 dark:bg-primary-dark">
+          className="mt-6 w-full flex-row items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 active:opacity-85 disabled:opacity-60">
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (

@@ -1,3 +1,4 @@
+import { useClerk } from '@clerk/expo';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,19 +19,19 @@ function getUrgency(deadlineAt: string): { urgency: Urgency; label: string } {
 }
 
 const urgencyStyles: Record<Urgency, { dot: string; text: string }> = {
-  plenty: { dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
-  soon: { dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
-  today: { dot: 'bg-red-500', text: 'text-red-600 dark:text-red-400' },
-  passed: { dot: 'bg-neutral-400', text: 'text-neutral-500 dark:text-neutral-400' },
+  plenty: { dot: 'bg-emerald-500', text: 'text-emerald-600' },
+  soon: { dot: 'bg-amber-500', text: 'text-amber-600' },
+  today: { dot: 'bg-red-500', text: 'text-red-600' },
+  passed: { dot: 'bg-neutral-400', text: 'text-neutral-500' },
 };
 
 function GroupCard({ group }: { group: GroupSummary }) {
   const status = group.openCycle ? getUrgency(group.openCycle.deadlineAt) : null;
 
   return (
-    <View className="w-full gap-2 rounded-2xl bg-sand p-4 dark:bg-umber">
+    <View className="w-full gap-2 rounded-2xl bg-sand p-4">
       <View className="flex-row items-center justify-between">
-        <Text className="text-lg font-bold text-charcoal dark:text-cream">{group.name}</Text>
+        <Text className="text-lg font-bold text-charcoal">{group.name}</Text>
         <Text className="text-xl">👋</Text>
       </View>
       {status ? (
@@ -41,9 +42,7 @@ function GroupCard({ group }: { group: GroupSummary }) {
           </Text>
         </View>
       ) : (
-        <Text className="text-sm text-charcoal/50 dark:text-cream/50">
-          Next catch-up opens on the 1st 🗓️
-        </Text>
+        <Text className="text-sm text-charcoal/50">Next catch-up opens on the 1st 🗓️</Text>
       )}
     </View>
   );
@@ -51,6 +50,7 @@ function GroupCard({ group }: { group: GroupSummary }) {
 
 export default function HomeScreen() {
   const { apiFetch } = useApiClient();
+  const { signOut } = useClerk();
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'list' | 'create' | 'join'>('list');
@@ -102,7 +102,7 @@ export default function HomeScreen() {
   }, [apiFetch, inputValue, mode, loadGroups]);
 
   return (
-    <SafeAreaView className="flex-1 bg-cream dark:bg-charcoal">
+    <SafeAreaView className="flex-1 bg-cream">
       <ScrollView
         contentContainerClassName="items-center px-6 py-6 gap-4"
         className="flex-1"
@@ -110,15 +110,22 @@ export default function HomeScreen() {
           paddingTop: Platform.OS === 'web' ? WebTopBarInset : undefined,
           paddingBottom: Platform.OS !== 'web' ? BottomTabInset : undefined,
         }}>
-        <View className="w-full max-w-sm">
-          <Text className="text-3xl font-extrabold text-charcoal dark:text-cream">Your groups</Text>
-          <Text className="mt-1 text-sm text-charcoal/50 dark:text-cream/50">
-            Everyone's monthly catch-ups, in one place.
-          </Text>
+        <View className="w-full max-w-sm flex-row items-start justify-between">
+          <View>
+            <Text className="text-3xl font-extrabold text-charcoal">Your groups</Text>
+            <Text className="mt-1 text-sm text-charcoal/50">
+              Everyone's monthly catch-ups, in one place.
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => signOut()}
+            className="rounded-full bg-sand px-3 py-2 active:opacity-70">
+            <Text className="text-sm font-medium text-charcoal/70">Sign out</Text>
+          </Pressable>
         </View>
 
         {error && (
-          <Text className="w-full max-w-sm rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+          <Text className="w-full max-w-sm rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-600">
             {error}
           </Text>
         )}
@@ -126,12 +133,10 @@ export default function HomeScreen() {
         {groups === null && !error && <ActivityIndicator className="mt-8" color="#FF6B4A" />}
 
         {groups?.length === 0 && mode === 'list' && (
-          <View className="w-full max-w-sm items-center gap-2 rounded-2xl bg-sand py-8 dark:bg-umber">
+          <View className="w-full max-w-sm items-center gap-2 rounded-2xl bg-sand py-8">
             <Text className="text-4xl">🎉</Text>
-            <Text className="text-center text-base font-medium text-charcoal dark:text-cream">
-              No groups yet
-            </Text>
-            <Text className="max-w-[240px] text-center text-sm text-charcoal/50 dark:text-cream/50">
+            <Text className="text-center text-base font-medium text-charcoal">No groups yet</Text>
+            <Text className="max-w-[240px] text-center text-sm text-charcoal/50">
               Start one with your friends, or join with an invite code.
             </Text>
           </View>
@@ -143,18 +148,18 @@ export default function HomeScreen() {
           <View className="w-full max-w-sm flex-row gap-3">
             <Pressable
               onPress={() => setMode('create')}
-              className="flex-1 items-center rounded-full bg-primary px-4 py-3 active:opacity-85 dark:bg-primary-dark">
+              className="flex-1 items-center rounded-full bg-primary px-4 py-3 active:opacity-85">
               <Text className="font-semibold text-white">✨ Create group</Text>
             </Pressable>
             <Pressable
               onPress={() => setMode('join')}
-              className="flex-1 items-center rounded-full bg-sand px-4 py-3 active:opacity-70 dark:bg-umber">
-              <Text className="font-semibold text-charcoal dark:text-cream">Join group</Text>
+              className="flex-1 items-center rounded-full bg-sand px-4 py-3 active:opacity-70">
+              <Text className="font-semibold text-charcoal">Join group</Text>
             </Pressable>
           </View>
         ) : (
-          <View className="w-full max-w-sm gap-3 rounded-2xl bg-sand p-4 dark:bg-umber">
-            <Text className="font-semibold text-charcoal dark:text-cream">
+          <View className="w-full max-w-sm gap-3 rounded-2xl bg-sand p-4">
+            <Text className="font-semibold text-charcoal">
               {mode === 'create' ? '✨ Name your group' : '🔑 Got an invite code?'}
             </Text>
             <TextInput
@@ -164,13 +169,13 @@ export default function HomeScreen() {
               placeholder={mode === 'create' ? 'e.g. The Book Club' : 'Paste it here'}
               placeholderTextColor="#8A7F76"
               autoCapitalize={mode === 'create' ? 'words' : 'none'}
-              className="rounded-xl bg-cream px-4 py-3 text-charcoal dark:bg-charcoal dark:text-cream"
+              className="rounded-xl bg-cream px-4 py-3 text-charcoal"
             />
             <View className="flex-row gap-3">
               <Pressable
                 disabled={submitting}
                 onPress={onSubmit}
-                className="flex-1 items-center rounded-full bg-primary px-4 py-3 active:opacity-85 disabled:opacity-50 dark:bg-primary-dark">
+                className="flex-1 items-center rounded-full bg-primary px-4 py-3 active:opacity-85 disabled:opacity-50">
                 <Text className="font-semibold text-white">
                   {submitting ? 'Saving…' : mode === 'create' ? 'Create' : 'Join'}
                 </Text>
@@ -180,8 +185,8 @@ export default function HomeScreen() {
                   setMode('list');
                   setInputValue('');
                 }}
-                className="flex-1 items-center rounded-full bg-cream px-4 py-3 active:opacity-70 dark:bg-charcoal">
-                <Text className="font-semibold text-charcoal dark:text-cream">Cancel</Text>
+                className="flex-1 items-center rounded-full bg-cream px-4 py-3 active:opacity-70">
+                <Text className="font-semibold text-charcoal">Cancel</Text>
               </Pressable>
             </View>
           </View>
