@@ -4,6 +4,11 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    // Publishable keys are designed to be public (same value ships in the
+    // mobile app's client bundle) — safe to commit, not a secret.
+    "CLERK_PUBLISHABLE_KEY": "pk_test_bGl2aW5nLWthbmdhcm9vLTE5MjAuY2xlcmsuYWNjb3VudHMuZGV2JA"
+  },
   "r2_buckets": [
     {
       "binding": "MEDIA_BUCKET",

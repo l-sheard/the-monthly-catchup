@@ -49,9 +49,16 @@ export default function HomeScreen() {
     }
   }, [apiFetch]);
 
+  // Deliberately run once on mount, not on [loadGroups]: Clerk's getToken
+  // (and therefore apiFetch, and therefore loadGroups) gets a new function
+  // identity most renders, so depending on it here was an infinite fetch
+  // loop — every fetch's setState triggered a re-render, which produced a
+  // new loadGroups, which re-ran the effect. Refresh after create/join is
+  // triggered explicitly in onSubmit instead.
   useEffect(() => {
     loadGroups();
-  }, [loadGroups]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onSubmit = useCallback(async () => {
     if (!inputValue.trim()) return;

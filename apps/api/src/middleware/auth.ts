@@ -13,7 +13,10 @@ export const requireAuth = createMiddleware<{ Bindings: Bindings; Variables: Var
       return c.json({ error: 'Missing Authorization header' }, 401);
     }
 
-    const clerk = createClerkClient({ secretKey: c.env.CLERK_SECRET_KEY });
+    const clerk = createClerkClient({
+      secretKey: c.env.CLERK_SECRET_KEY,
+      publishableKey: c.env.CLERK_PUBLISHABLE_KEY,
+    });
     const result = await clerk.authenticateRequest(c.req.raw, {
       authorizedParties: [],
     });
