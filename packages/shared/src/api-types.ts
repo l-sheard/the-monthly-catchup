@@ -27,6 +27,12 @@ export interface MeetupSuggestionView {
   bodyText: string;
 }
 
+export interface GroupMemberView {
+  id: string;
+  name: string;
+  role: 'owner' | 'member';
+}
+
 export interface MediaView {
   id: string;
   kind: 'photo' | 'audio';
@@ -41,4 +47,5 @@ export interface CycleDetailResponse {
   myAnswers: Record<string, string>; // questionId -> bodyText
   myMedia: Record<string, MediaView[]>; // questionId -> attached media
   meetupSuggestions: MeetupSuggestionView[];
+  members: GroupMemberView[];
 }

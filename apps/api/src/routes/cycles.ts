@@ -5,6 +5,7 @@ import { submitAnswerInput, submitMeetupSuggestionInput } from '@stay-in-touch/s
 import {
   answers,
   cycles,
+  groupMembers,
   groups,
   media,
   meetupSuggestions,
@@ -91,6 +92,12 @@ cyclesRoute.get('/:id', async (c) => {
     .innerJoin(users, eq(users.id, meetupSuggestions.userId))
     .where(eq(meetupSuggestions.cycleId, cycleId));
 
+  const memberRows = await db
+    .select({ id: users.id, name: users.name, role: groupMembers.role })
+    .from(groupMembers)
+    .innerJoin(users, eq(users.id, groupMembers.userId))
+    .where(eq(groupMembers.groupId, cycle.groupId));
+
   const response: CycleDetailResponse = {
     cycle: {
       ...cycle,
@@ -102,6 +109,7 @@ cyclesRoute.get('/:id', async (c) => {
     myAnswers,
     myMedia,
     meetupSuggestions: suggestionRows,
+    members: memberRows,
   };
 
   return c.json(response);

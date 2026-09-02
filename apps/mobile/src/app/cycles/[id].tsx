@@ -149,6 +149,23 @@ export default function CycleDetailScreen() {
                 })}{' '}
                 deadline · status: {data.cycle.status}
               </Text>
+              <View className="mt-3 flex-row flex-wrap gap-2">
+                {data.members.map((member) => (
+                  <View
+                    key={member.id}
+                    className="flex-row items-center gap-1.5 rounded-full border border-paper-line bg-white px-3 py-1.5">
+                    <View className="h-5 w-5 items-center justify-center rounded-full bg-primary/15">
+                      <Text className="font-mono-bold text-[10px] text-primary">
+                        {member.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <Text className="font-mono text-xs text-charcoal">
+                      {member.name}
+                      {member.role === 'owner' ? ' 👑' : ''}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </>
           )}
         </View>
