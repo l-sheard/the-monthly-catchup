@@ -211,11 +211,13 @@ export default function CycleDetailScreen() {
                   <Text className="font-mono-bold text-sm text-charcoal">
                     {QUESTION_EMOJI[q.type] ?? '💬'} {q.promptText}
                   </Text>
-                  {/* Photo and voice questions have no shared question-level
-                      answer box: voice is just the recording, and a photo
-                      question's "caption" is per-photo (see
+                  {/* Voice questions have no shared question-level answer
+                      box (just the recording). Photo questions don't either
+                      — a photo question's "caption" is per-photo (see
                       MediaAttachment/PhotoThumbnail), not one field shared
-                      across every photo attached to the question. */}
+                      across every photo attached to it. Recipe questions
+                      keep the text box AND get the same photo attachment a
+                      photo question gets, for a photo of the dish. */}
                   {q.type !== 'voice' && q.type !== 'photo' && (
                     <TextInput
                       multiline
@@ -226,11 +228,11 @@ export default function CycleDetailScreen() {
                       className="min-h-[64px] rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
                     />
                   )}
-                  {(q.type === 'photo' || q.type === 'voice') && (
+                  {(q.type === 'photo' || q.type === 'voice' || q.type === 'recipe') && (
                     <MediaAttachment
                       cycleId={data.cycle.id}
                       questionId={q.id}
-                      kind={q.type === 'photo' ? 'photo' : 'audio'}
+                      kind={q.type === 'voice' ? 'audio' : 'photo'}
                       existingMedia={data.myMedia[q.id] ?? []}
                       onChange={load}
                     />
