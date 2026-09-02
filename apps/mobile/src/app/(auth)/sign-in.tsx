@@ -478,47 +478,35 @@ export default function SignInScreen() {
                   </Pressable>
                 )}
 
-                <View className="mt-1 flex-row gap-3">
-                  {mode === 'signin' ? (
-                    <>
-                      <Pressable
-                        disabled={anyLoading}
-                        onPress={onSignInPress}
-                        className="flex-1 items-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-60">
-                        {submitting ? (
-                          <ActivityIndicator color="#fff" />
-                        ) : (
-                          <Text className="font-mono-bold text-white">Sign in</Text>
-                        )}
-                      </Pressable>
-                      <Pressable
-                        disabled={anyLoading}
-                        onPress={() => switchMode('signup')}
-                        className="flex-1 items-center rounded-full border border-paper-line bg-white px-4 py-3 active:opacity-70 disabled:opacity-60">
-                        <Text className="font-mono-bold text-charcoal">Create account</Text>
-                      </Pressable>
-                    </>
+                <Pressable
+                  disabled={anyLoading}
+                  onPress={mode === 'signin' ? onSignInPress : onSignUpPress}
+                  className="mt-1 items-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-60">
+                  {submitting ? (
+                    <ActivityIndicator color="#fff" />
                   ) : (
-                    <>
-                      <Pressable
-                        disabled={anyLoading}
-                        onPress={onSignUpPress}
-                        className="flex-1 items-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-60">
-                        {submitting ? (
-                          <ActivityIndicator color="#fff" />
-                        ) : (
-                          <Text className="font-mono-bold text-white">Create account</Text>
-                        )}
-                      </Pressable>
-                      <Pressable
-                        disabled={anyLoading}
-                        onPress={() => switchMode('signin')}
-                        className="flex-1 items-center rounded-full border border-paper-line bg-white px-4 py-3 active:opacity-70 disabled:opacity-60">
-                        <Text className="font-mono-bold text-charcoal">Back to sign in</Text>
-                      </Pressable>
-                    </>
+                    <Text className="font-mono-bold text-white">
+                      {mode === 'signin' ? 'Sign in' : 'Create account'}
+                    </Text>
                   )}
-                </View>
+                </Pressable>
+
+                <Pressable
+                  disabled={anyLoading}
+                  onPress={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
+                  className="items-center py-1">
+                  <Text className="font-mono text-sm text-charcoal/60">
+                    {mode === 'signin' ? (
+                      <>
+                        Don’t have an account? <Text className="font-mono-bold text-primary">Sign up</Text>
+                      </>
+                    ) : (
+                      <>
+                        Already have an account? <Text className="font-mono-bold text-primary">Sign in</Text>
+                      </>
+                    )}
+                  </Text>
+                </Pressable>
               </View>
 
               <View className="w-full flex-row items-center gap-3">
