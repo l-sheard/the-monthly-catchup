@@ -129,7 +129,9 @@ export default function CycleDetailScreen() {
     <SafeAreaView className="flex-1 bg-neutral-50">
       <ScrollView contentContainerClassName="items-center px-6 py-8 gap-4" className="flex-1">
         <View className="w-full max-w-xl">
-          <Pressable onPress={() => router.back()} className="mb-3 self-start active:opacity-60">
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+            className="mb-3 self-start active:opacity-60">
             <Text className="text-sm font-medium text-charcoal/50">← Back</Text>
           </Pressable>
 

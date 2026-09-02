@@ -1,5 +1,6 @@
 import { useAuth } from '@clerk/expo';
 import { useCallback } from 'react';
+import { Platform } from 'react-native';
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL!;
 
@@ -52,12 +53,23 @@ export function useApiClient() {
     ): Promise<T> => {
       const token = await getToken();
       const form = new FormData();
-      // React Native's fetch/FormData recognizes this { uri, name, type }
-      // shape and streams the file from its local URI — do not set
-      // Content-Type manually here, fetch derives the multipart boundary
-      // itself from the FormData body, same reason apiFetch's default
-      // 'application/json' header would be wrong for this request.
-      form.append('file', file as unknown as Blob);
+      if (Platform.OS === 'web') {
+        // Browsers don't have the native trick below — appending a plain
+        // { uri, name, type } object to a web FormData serializes it to the
+        // string "[object Object]" instead of attaching a file, which is
+        // exactly what produced the API's "Missing file" error. expo-image-
+        // picker/expo-audio hand back a blob:/data: URI on web, which fetch
+        // can resolve back into a real Blob for FormData to attach.
+        const blob = await (await fetch(file.uri)).blob();
+        form.append('file', blob, file.name);
+      } else {
+        // React Native's fetch/FormData recognizes this { uri, name, type }
+        // shape and streams the file from its local URI — do not set
+        // Content-Type manually here, fetch derives the multipart boundary
+        // itself from the FormData body, same reason apiFetch's default
+        // 'application/json' header would be wrong for this request.
+        form.append('file', file as unknown as Blob);
+      }
       form.append('kind', kind);
       if (durationSeconds != null) form.append('durationSeconds', String(Math.round(durationSeconds)));
 
