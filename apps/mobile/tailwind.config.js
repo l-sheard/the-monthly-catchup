@@ -6,14 +6,14 @@ module.exports = {
     extend: {
       colors: {
         // Mirrors src/constants/theme.ts (Colors.light/dark) — keep both in
-        // sync: sage/background, sand/backgroundElement, charcoal/text,
+        // sync: paper/background, sand/backgroundElement, charcoal/text,
         // umber/dark-mode backgroundElement, primary/primary.
         primary: { DEFAULT: '#F2776A', dark: '#F58F84' },
         charcoal: '#1B3A33',
-        sand: '#EDF4E8',
+        sand: '#EFEFEC',
         umber: '#16231F',
-        sage: '#E3ECDD',
-        'sage-line': '#D3E2CC',
+        paper: '#F3EAD3',
+        'paper-line': '#E0D3AE',
       },
       fontFamily: {
         // Loaded via @expo-google-fonts/space-mono in app/_layout.tsx.

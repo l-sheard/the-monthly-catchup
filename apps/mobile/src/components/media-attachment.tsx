@@ -152,7 +152,7 @@ function PhotoAttachment({
       <Pressable
         disabled={uploading || atLimit}
         onPress={pickAndUpload}
-        className="flex-row items-center gap-2 self-start rounded-full border border-sage-line px-4 py-2 active:opacity-70 disabled:opacity-50">
+        className="flex-row items-center gap-2 self-start rounded-full border border-paper-line px-4 py-2 active:opacity-70 disabled:opacity-50">
         {uploading ? (
           <ActivityIndicator size="small" color="#F2776A" />
         ) : (
@@ -275,7 +275,7 @@ function VoiceAttachment({
 
   if (uploading) {
     return (
-      <View className="flex-row items-center gap-2 self-start rounded-full border border-sage-line px-4 py-2">
+      <View className="flex-row items-center gap-2 self-start rounded-full border border-paper-line px-4 py-2">
         <ActivityIndicator size="small" color="#F2776A" />
         <Text className="font-mono text-charcoal">Uploading…</Text>
       </View>
@@ -310,7 +310,7 @@ function VoiceAttachment({
       {!atLimit && (
         <Pressable
           onPress={startRecording}
-          className="flex-row items-center gap-2 self-start rounded-full border border-sage-line px-4 py-2 active:opacity-70">
+          className="flex-row items-center gap-2 self-start rounded-full border border-paper-line px-4 py-2 active:opacity-70">
           <Text className="font-mono text-charcoal">🎙️ Record voice note</Text>
         </Pressable>
       )}
@@ -341,7 +341,7 @@ function VoiceNotePlayer({
   };
 
   return (
-    <View className="flex-row items-center gap-3 self-start rounded-full border border-sage-line px-4 py-2">
+    <View className="flex-row items-center gap-3 self-start rounded-full border border-paper-line px-4 py-2">
       <Pressable onPress={toggle} disabled={!uri} className="disabled:opacity-50">
         <Text className="font-mono text-charcoal">
           {error

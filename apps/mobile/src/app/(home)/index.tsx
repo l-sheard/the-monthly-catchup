@@ -8,7 +8,7 @@ import type { GroupSummary, ListMyGroupsResponse } from '@stay-in-touch/shared';
 import { useApiClient } from '@/lib/api';
 import { BottomTabInset, WebTopBarInset } from '@/constants/theme';
 
-const CARD = 'rounded-2xl border border-sage-line bg-white shadow-sm shadow-black/5';
+const CARD = 'rounded-2xl border border-paper-line bg-white shadow-sm shadow-black/5';
 
 type Urgency = 'plenty' | 'soon' | 'today' | 'passed';
 
@@ -138,7 +138,7 @@ export default function HomeScreen() {
   }, [apiFetch, inputValue, mode, loadGroups]);
 
   return (
-    <SafeAreaView className="flex-1 bg-sage">
+    <SafeAreaView className="flex-1 bg-paper">
       <ScrollView
         contentContainerClassName="items-center px-6 py-8 gap-4"
         className="flex-1"
@@ -190,7 +190,7 @@ export default function HomeScreen() {
               </Pressable>
               <Pressable
                 onPress={() => setMode('join')}
-                className="flex-1 items-center rounded-full border border-sage-line bg-white px-4 py-3 active:opacity-70">
+                className="flex-1 items-center rounded-full border border-paper-line bg-white px-4 py-3 active:opacity-70">
                 <Text className="font-mono-bold text-charcoal">Join group</Text>
               </Pressable>
             </View>
@@ -206,7 +206,7 @@ export default function HomeScreen() {
                 placeholder={mode === 'create' ? 'e.g. The Book Club' : 'Paste it here'}
                 placeholderTextColor="#7C9188"
                 autoCapitalize={mode === 'create' ? 'words' : 'none'}
-                className="rounded-xl border border-sage-line bg-sand px-4 py-3 font-mono text-charcoal"
+                className="rounded-xl border border-paper-line bg-sand px-4 py-3 font-mono text-charcoal"
               />
               <View className="flex-row gap-3">
                 <Pressable
@@ -222,7 +222,7 @@ export default function HomeScreen() {
                     setMode('list');
                     setInputValue('');
                   }}
-                  className="flex-1 items-center rounded-full border border-sage-line px-4 py-3 active:opacity-70">
+                  className="flex-1 items-center rounded-full border border-paper-line px-4 py-3 active:opacity-70">
                   <Text className="font-mono-bold text-charcoal">Cancel</Text>
                 </Pressable>
               </View>

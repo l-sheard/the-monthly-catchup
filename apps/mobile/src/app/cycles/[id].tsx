@@ -15,7 +15,7 @@ import type { CycleDetailResponse } from '@stay-in-touch/shared';
 import { useApiClient } from '@/lib/api';
 import { MediaAttachment } from '@/components/media-attachment';
 
-const CARD = 'rounded-2xl border border-sage-line bg-white shadow-sm shadow-black/5';
+const CARD = 'rounded-2xl border border-paper-line bg-white shadow-sm shadow-black/5';
 const PLACEHOLDER = '#7C9188';
 
 const QUESTION_EMOJI: Record<string, string> = {
@@ -127,7 +127,7 @@ export default function CycleDetailScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-sage">
+    <SafeAreaView className="flex-1 bg-paper">
       <ScrollView contentContainerClassName="items-center px-6 py-8 gap-4" className="flex-1">
         <View className="w-full max-w-xl">
           <Pressable
@@ -176,7 +176,7 @@ export default function CycleDetailScreen() {
                       q.type === 'photo' || q.type === 'voice' ? 'Caption (optional)…' : 'Your answer…'
                     }
                     placeholderTextColor={PLACEHOLDER}
-                    className="min-h-[64px] rounded-xl border border-sage-line bg-sand px-4 py-3 font-mono text-charcoal"
+                    className="min-h-[64px] rounded-xl border border-paper-line bg-sand px-4 py-3 font-mono text-charcoal"
                   />
                   {(q.type === 'photo' || q.type === 'voice') && (
                     <MediaAttachment
@@ -218,7 +218,7 @@ export default function CycleDetailScreen() {
                   onChangeText={setSuggestionInput}
                   placeholder="e.g. Picnic in the park?"
                   placeholderTextColor={PLACEHOLDER}
-                  className="flex-1 rounded-xl border border-sage-line bg-sand px-4 py-3 font-mono text-charcoal"
+                  className="flex-1 rounded-xl border border-paper-line bg-sand px-4 py-3 font-mono text-charcoal"
                 />
                 <Pressable
                   disabled={addingSuggestion}
@@ -238,7 +238,7 @@ export default function CycleDetailScreen() {
               <Pressable
                 disabled={sending}
                 onPress={sendNewsletter}
-                className="items-center rounded-full border border-sage-line px-4 py-3 active:opacity-70 disabled:opacity-50">
+                className="items-center rounded-full border border-paper-line px-4 py-3 active:opacity-70 disabled:opacity-50">
                 <Text className="font-mono-bold text-charcoal">
                   {sending ? 'Sending…' : 'Send newsletter now'}
                 </Text>
