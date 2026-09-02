@@ -1,14 +1,23 @@
 import { useClerk } from '@clerk/expo';
+import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { GroupSummary, ListMyGroupsResponse } from '@stay-in-touch/shared';
+import type { Group, GroupSummary, ListMyGroupsResponse } from '@stay-in-touch/shared';
 
 import { useApiClient } from '@/lib/api';
 import { BottomTabInset, WebTopBarInset } from '@/constants/theme';
 
 const CARD = 'rounded-2xl border border-paper-line bg-white shadow-sm shadow-black/5';
+
+// The current page's own origin on web — always correct for wherever this
+// build is actually being served from (localhost in dev, the real domain
+// once deployed), no separate config needed. Native has no equivalent
+// (there's no browser address bar), so the link portion of the share panel
+// just doesn't render there — the code still does, which is all a native
+// user needs since they're pasting it into this same app.
+const WEB_APP_URL = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : null;
 
 type Urgency = 'plenty' | 'soon' | 'today' | 'passed';
 
@@ -89,9 +98,11 @@ export default function HomeScreen() {
   const { signOut } = useClerk();
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<'list' | 'create' | 'join'>('list');
+  const [mode, setMode] = useState<'list' | 'create' | 'join' | 'share'>('list');
   const [inputValue, setInputValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [createdGroup, setCreatedGroup] = useState<Group | null>(null);
+  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
 
   const loadGroups = useCallback(async () => {
     try {
@@ -119,13 +130,21 @@ export default function HomeScreen() {
     setSubmitting(true);
     try {
       if (mode === 'create') {
-        await apiFetch('/groups', { method: 'POST', body: JSON.stringify({ name: inputValue.trim() }) });
-      } else if (mode === 'join') {
-        await apiFetch('/groups/join', {
+        const { group } = await apiFetch<{ group: Group }>('/groups', {
           method: 'POST',
-          body: JSON.stringify({ inviteCode: inputValue.trim() }),
+          body: JSON.stringify({ name: inputValue.trim() }),
         });
+        setInputValue('');
+        setError(null);
+        setCreatedGroup(group);
+        setMode('share'); // show the invite code/link before dropping back to the list
+        await loadGroups();
+        return;
       }
+      await apiFetch('/groups/join', {
+        method: 'POST',
+        body: JSON.stringify({ inviteCode: inputValue.trim() }),
+      });
       setInputValue('');
       setMode('list');
       setError(null);
@@ -136,6 +155,12 @@ export default function HomeScreen() {
       setSubmitting(false);
     }
   }, [apiFetch, inputValue, mode, loadGroups]);
+
+  const copy = useCallback(async (text: string, which: 'code' | 'link') => {
+    await Clipboard.setStringAsync(text);
+    setCopied(which);
+    setTimeout(() => setCopied((c) => (c === which ? null : c)), 2000);
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-paper">
@@ -181,7 +206,7 @@ export default function HomeScreen() {
 
           {groups?.map((group) => <GroupCard key={group.id} group={group} />)}
 
-          {mode === 'list' ? (
+          {mode === 'list' && (
             <View className="flex-row gap-3">
               <Pressable
                 onPress={() => setMode('create')}
@@ -194,7 +219,9 @@ export default function HomeScreen() {
                 <Text className="font-mono-bold text-charcoal">Join group</Text>
               </Pressable>
             </View>
-          ) : (
+          )}
+
+          {(mode === 'create' || mode === 'join') && (
             <View className={`gap-3 p-5 ${CARD}`}>
               <Text className="font-mono-bold text-charcoal">
                 {mode === 'create' ? '✨ Name your group' : '🔑 Got an invite code?'}
@@ -226,6 +253,56 @@ export default function HomeScreen() {
                   <Text className="font-mono-bold text-charcoal">Cancel</Text>
                 </Pressable>
               </View>
+            </View>
+          )}
+
+          {mode === 'share' && createdGroup && (
+            <View className={`gap-3 p-5 ${CARD}`}>
+              <Text className="font-mono-bold text-charcoal">
+                🎉 {createdGroup.name} is ready — invite your friends
+              </Text>
+
+              <View className="gap-1.5">
+                <Text className="font-mono text-xs text-charcoal/60">Join code</Text>
+                <View className="flex-row items-center gap-2">
+                  <Text className="flex-1 rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono-bold text-charcoal">
+                    {createdGroup.inviteCode}
+                  </Text>
+                  <Pressable
+                    onPress={() => copy(createdGroup.inviteCode, 'code')}
+                    className="items-center justify-center rounded-full border border-paper-line bg-white px-4 py-3 active:opacity-70">
+                    <Text className="font-mono-bold text-charcoal">{copied === 'code' ? 'Copied!' : 'Copy'}</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {WEB_APP_URL && (
+                <View className="gap-1.5">
+                  <Text className="font-mono text-xs text-charcoal/60">Or share this link</Text>
+                  <View className="flex-row items-center gap-2">
+                    <Text
+                      numberOfLines={1}
+                      className="flex-1 rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-sm text-charcoal">
+                      {`${WEB_APP_URL}/join/${createdGroup.inviteCode}`}
+                    </Text>
+                    <Pressable
+                      onPress={() => copy(`${WEB_APP_URL}/join/${createdGroup.inviteCode}`, 'link')}
+                      className="items-center justify-center rounded-full border border-paper-line bg-white px-4 py-3 active:opacity-70">
+                      <Text className="font-mono-bold text-charcoal">{copied === 'link' ? 'Copied!' : 'Copy'}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              <Pressable
+                onPress={() => {
+                  setMode('list');
+                  setCreatedGroup(null);
+                  setCopied(null);
+                }}
+                className="mt-1 items-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85">
+                <Text className="font-mono-bold text-white">Done</Text>
+              </Pressable>
             </View>
           )}
         </View>

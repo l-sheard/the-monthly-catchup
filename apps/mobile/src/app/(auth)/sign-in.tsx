@@ -1,5 +1,5 @@
 import { useSSO } from '@clerk/expo';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +9,10 @@ import { GoogleIcon } from '@/components/google-icon';
 export default function SignInScreen() {
   const { startSSOFlow } = useSSO();
   const router = useRouter();
+  // Set by e.g. /join/[code] when it redirects here for an unauthenticated
+  // visitor, so a join link doesn't just dead-end at the home screen after
+  // sign-in — see that route for the other half of this.
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const [loading, setLoading] = useState(false);
 
   const onGooglePress = useCallback(async () => {
@@ -20,7 +24,10 @@ export default function SignInScreen() {
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        router.replace('/');
+        // returnTo comes from a URL param, so its shape isn't known to the
+        // typed-routes generator the way a literal href is — validated at
+        // runtime (must start with '/') instead.
+        router.replace((returnTo && returnTo.startsWith('/') ? returnTo : '/') as Href);
         return;
       }
       // No createdSessionId → user cancelled the flow; nothing to do.
@@ -29,7 +36,7 @@ export default function SignInScreen() {
     } finally {
       setLoading(false);
     }
-  }, [startSSOFlow, router]);
+  }, [startSSOFlow, router, returnTo]);
 
   return (
     <SafeAreaView className="flex-1 items-center justify-center bg-paper px-6">
