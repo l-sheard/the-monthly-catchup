@@ -50,7 +50,7 @@ pnpm mobile        # then press w for web, i for iOS simulator, a for Android
 
 ### Auth (Clerk)
 
-Real Clerk app ("Stay In Touch", `[clerk-app-id]`), linked via the
+Real Clerk app ("Stay In Touch"), linked via the
 Clerk CLI. Google sign-in uses the browser SSO flow (`useSSO`), which works across
 Expo Go, dev builds, and web from one code path — see
 `apps/mobile/src/app/(auth)/sign-in.tsx`. Routes are split into `(auth)` (public,
@@ -66,13 +66,14 @@ production release: your own Google OAuth client, plus Sign in with Apple
 alongside it (Apple requires offering it if you offer any third-party sign-in on iOS).
 
 ```bash
-pnpm dlx clerk@latest env pull --app [clerk-app-id]   # refresh keys
+pnpm dlx clerk@latest env pull   # refresh keys (resolves the linked app from the CLI's own config)
 ```
 
 ### Database (Neon)
 
-The repo is linked to a real Neon project (`[neon-project]`, "Stay in touch")
-via `neon.ts` / `.neon`. The `production` branch already has all 10 tables applied.
+The repo is linked to a real Neon project via `neon.ts` / `.neon` (gitignored —
+run `neon link` to link your own). The `production` branch already has all 10
+tables applied.
 
 ```bash
 neon status                 # see the linked branch's live config
