@@ -29,6 +29,10 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   avatarUrl: text('avatar_url'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  // Drives the inbox icon's unread dot in the top bar: null (never
+  // checked) or any timestamp older than a newsletter's sentAt means
+  // there's something new across any of the user's groups.
+  lastNewsletterCheckAt: timestamp('last_newsletter_check_at', { withTimezone: true }),
 });
 
 export const groups = pgTable('groups', {

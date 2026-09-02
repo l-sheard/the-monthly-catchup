@@ -1,10 +1,14 @@
 import { useRouter } from 'expo-router';
 import { Tabs, TabList, TabTrigger, TabSlot } from 'expo-router/ui';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import type { InboxResponse } from '@stay-in-touch/shared';
 
+import { MailIcon } from './mail-icon';
 import { PersonIcon } from './person-icon';
 import { ThemedText } from './themed-text';
 
+import { useApiClient } from '@/lib/api';
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 
 // Single destination for now, so there's nothing to switch between visibly —
@@ -18,6 +22,20 @@ import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 // screen, not here, so it isn't a top-level action of its own.
 export default function AppTabs() {
   const router = useRouter();
+  const { apiFetch } = useApiClient();
+  const [hasUnread, setHasUnread] = useState(false);
+
+  // This component only lives inside the (home) route group, so it unmounts
+  // whenever you navigate to a top-level route (cycles/[id], inbox, ...)
+  // and remounts fresh on the way back — that's what keeps this in sync
+  // after visiting the inbox marks everything read, without needing to wire
+  // up any cross-screen state.
+  useEffect(() => {
+    apiFetch<InboxResponse>('/newsletters/inbox')
+      .then((res) => setHasUnread(res.hasUnread))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Tabs>
@@ -40,6 +58,12 @@ export default function AppTabs() {
               <ThemedText type="smallBold" style={styles.actionText}>
                 Join group
               </ThemedText>
+            </Pressable>
+            <Pressable style={styles.linkButton} onPress={() => router.push('/inbox')}>
+              <View>
+                <MailIcon size={18} color={Colors.light.textSecondary} />
+                {hasUnread && <View style={styles.unreadDot} />}
+              </View>
             </Pressable>
             <Pressable style={styles.linkButton} onPress={() => router.push('/account')}>
               <PersonIcon size={18} color={Colors.light.textSecondary} />
@@ -101,5 +125,16 @@ const styles = StyleSheet.create({
   linkButton: {
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: -2,
+    right: -3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.light.primary,
+    borderWidth: 1.5,
+    borderColor: Colors.light.background,
   },
 });

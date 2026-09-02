@@ -19,3 +19,20 @@ export async function assertGroupMember(db: Db, groupId: string, userId: string)
 
   return membership;
 }
+
+/**
+ * For actions scoped to the group's owner — removing a member, deleting the
+ * group outright. Throws NOT_A_MEMBER the same way assertGroupMember does
+ * (so callers can share one catch block) plus a distinct NOT_OWNER for a
+ * real member who just isn't the owner, in case a route ever wants to tell
+ * those apart in its response.
+ */
+export async function assertGroupOwner(db: Db, groupId: string, userId: string) {
+  const membership = await assertGroupMember(db, groupId, userId);
+
+  if (membership.role !== 'owner') {
+    throw new Error('NOT_OWNER');
+  }
+
+  return membership;
+}

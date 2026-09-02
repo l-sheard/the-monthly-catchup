@@ -2,10 +2,10 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { and, eq, inArray, desc } from 'drizzle-orm';
 import { createGroupInput, joinGroupInput } from '@stay-in-touch/shared/validators';
-import { groups, groupMembers, cycles, newsletters, users, answers } from '@stay-in-touch/shared/schema';
+import { groups, groupMembers, cycles, newsletters, users, answers, media } from '@stay-in-touch/shared/schema';
 import type { GroupMemberView } from '@stay-in-touch/shared';
 import { requireAuth } from '../middleware/auth';
-import { assertGroupMember } from '../lib/authz';
+import { assertGroupMember, assertGroupOwner } from '../lib/authz';
 import { signMediaUrl } from '../lib/media-signing';
 import type { Bindings, Variables } from '../types';
 
@@ -192,4 +192,74 @@ groupsRoute.get('/:id', async (c) => {
   }
 
   return c.json({ group });
+});
+
+// Owner-only. Can't be used to remove the owner themselves (there'd be
+// nothing left to reassign ownership to) — deleting the group is the
+// closest equivalent for that case.
+groupsRoute.delete('/:id/members/:userId', async (c) => {
+  const db = c.get('db');
+  const callerId = c.get('userId');
+  const groupId = c.req.param('id');
+  const targetUserId = c.req.param('userId');
+
+  try {
+    await assertGroupOwner(db, groupId, callerId);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'NOT_OWNER') {
+      return c.json({ error: 'Only the group owner can remove members' }, 403);
+    }
+    return c.json({ error: 'Not a member of this group' }, 403);
+  }
+
+  if (targetUserId === callerId) {
+    return c.json({ error: 'Delete the group instead of removing yourself as owner' }, 400);
+  }
+
+  const [removed] = await db
+    .delete(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, targetUserId)))
+    .returning();
+
+  if (!removed) {
+    return c.json({ error: 'That person is not a member of this group' }, 404);
+  }
+
+  return c.json({ ok: true });
+});
+
+// Owner-only, permanent. Every group-scoped row cascades from `groups` at
+// the DB level (see schema.ts) except R2 media objects, which the DB knows
+// nothing about — gathered here before the cascade removes the `media`
+// rows that point to them, then deleted from the bucket after the DB
+// delete succeeds, so a failed R2 call never leaves the DB and bucket
+// disagreeing about a group that's still supposed to exist.
+groupsRoute.delete('/:id', async (c) => {
+  const db = c.get('db');
+  const userId = c.get('userId');
+  const groupId = c.req.param('id');
+
+  try {
+    await assertGroupOwner(db, groupId, userId);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'NOT_OWNER') {
+      return c.json({ error: 'Only the group owner can delete the group' }, 403);
+    }
+    return c.json({ error: 'Not a member of this group' }, 403);
+  }
+
+  const mediaRows = await db
+    .select({ storagePath: media.storagePath })
+    .from(media)
+    .innerJoin(answers, eq(answers.id, media.answerId))
+    .innerJoin(cycles, eq(cycles.id, answers.cycleId))
+    .where(eq(cycles.groupId, groupId));
+
+  await db.delete(groups).where(eq(groups.id, groupId));
+
+  if (mediaRows.length > 0) {
+    await c.env.MEDIA_BUCKET.delete(mediaRows.map((row) => row.storagePath));
+  }
+
+  return c.json({ ok: true });
 });

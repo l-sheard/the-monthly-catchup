@@ -236,6 +236,9 @@ export default function HomeScreen() {
           {/* Web has these in the top bar (app-tabs.web.tsx) instead. */}
           {Platform.OS !== 'web' && (
             <View className="items-end gap-1">
+              <Pressable onPress={() => router.push('/inbox')} className="rounded-lg px-3 py-2 active:opacity-60">
+                <Text className="font-mono text-sm text-charcoal/60">📬 Inbox</Text>
+              </Pressable>
               <Pressable onPress={() => router.push('/account')} className="rounded-lg px-3 py-2 active:opacity-60">
                 <Text className="font-mono text-sm text-charcoal/60">Account</Text>
               </Pressable>

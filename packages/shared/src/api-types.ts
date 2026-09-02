@@ -52,6 +52,18 @@ export interface ListNewslettersResponse {
   newsletters: NewsletterSummary[];
 }
 
+export interface InboxNewsletterSummary extends NewsletterSummary {
+  groupId: string;
+  groupName: string;
+}
+
+export interface InboxResponse {
+  // Whether anything's been sent, across any of the caller's groups, since
+  // they last opened the inbox — drives the top bar icon's unread dot.
+  hasUnread: boolean;
+  newsletters: InboxNewsletterSummary[];
+}
+
 export interface MediaView {
   id: string;
   kind: 'photo' | 'audio';
@@ -74,6 +86,9 @@ export interface CycleDetailResponse {
   myMedia: Record<string, MediaView[]>; // questionId -> attached media
   meetupSuggestions: MeetupSuggestionView[];
   members: GroupMemberView[];
+  // The caller's own role in this group — gates the remove-member/
+  // delete-group controls on the overview screen.
+  myRole: 'owner' | 'member';
   // Not-yet-used suggestions for a future month's question, so members can
   // see what's already been pitched before adding their own.
   questionSuggestions: QuestionSuggestionView[];

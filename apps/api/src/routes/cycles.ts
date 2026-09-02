@@ -113,6 +113,7 @@ cyclesRoute.get('/:id', async (c) => {
     .from(groupMembers)
     .innerJoin(users, eq(users.id, groupMembers.userId))
     .where(eq(groupMembers.groupId, cycle.groupId));
+  const myRole = memberRows.find((m) => m.id === userId)?.role ?? 'member';
 
   const questionSuggestionRows = await db
     .select({ id: suggestedQuestions.id, promptText: suggestedQuestions.promptText, authorName: users.name })
@@ -133,6 +134,7 @@ cyclesRoute.get('/:id', async (c) => {
     myMedia,
     meetupSuggestions: suggestionRows,
     members: memberRows,
+    myRole,
     questionSuggestions: questionSuggestionRows,
   };
 

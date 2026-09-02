@@ -28,6 +28,10 @@ export default function CycleOverviewScreen() {
   const [newsletters, setNewsletters] = useState<NewsletterSummary[] | null>(null);
   const [sendResult, setSendResult] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [confirmingDeleteGroup, setConfirmingDeleteGroup] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
+  const [deleteGroupError, setDeleteGroupError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -96,6 +100,32 @@ export default function CycleOverviewScreen() {
     }
   };
 
+  const removeMember = async (memberId: string) => {
+    if (!data) return;
+    setRemovingMemberId(memberId);
+    try {
+      await apiFetch(`/groups/${data.cycle.groupId}/members/${memberId}`, { method: 'DELETE' });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove member');
+    } finally {
+      setRemovingMemberId(null);
+    }
+  };
+
+  const deleteGroup = async () => {
+    if (!data) return;
+    setDeletingGroup(true);
+    setDeleteGroupError(null);
+    try {
+      await apiFetch(`/groups/${data.cycle.groupId}`, { method: 'DELETE' });
+      router.replace('/');
+    } catch (err) {
+      setDeleteGroupError(err instanceof Error ? err.message : 'Failed to delete group');
+      setDeletingGroup(false);
+    }
+  };
+
   const monthName = data
     ? new Date(Date.UTC(data.cycle.year, data.cycle.month - 1, 1)).toLocaleString('en-US', { month: 'long' })
     : '';
@@ -142,6 +172,22 @@ export default function CycleOverviewScreen() {
                       {member.name}
                       {member.role === 'owner' ? ' 👑' : ''}
                     </Text>
+                    {/* Only the owner can remove people, and never the
+                        owner themselves this way (see the API's 400 for
+                        that) — role !== 'owner' already excludes that
+                        chip, since only one role can be 'owner' at a time. */}
+                    {data.myRole === 'owner' && member.role !== 'owner' && (
+                      <Pressable
+                        disabled={removingMemberId === member.id}
+                        onPress={() => removeMember(member.id)}
+                        className="ml-0.5 active:opacity-60">
+                        {removingMemberId === member.id ? (
+                          <ActivityIndicator size="small" color="#F2776A" />
+                        ) : (
+                          <Text className="font-mono-bold text-xs text-red-500">✕</Text>
+                        )}
+                      </Pressable>
+                    )}
                   </View>
                 ))}
               </View>
@@ -226,6 +272,48 @@ export default function CycleOverviewScreen() {
                 )}
               </View>
             </View>
+
+            {data.myRole === 'owner' && (
+              <View className={`gap-3 p-5 ${CARD} border-red-200`}>
+                <Text className="font-mono-bold text-charcoal">⚠️ Delete group</Text>
+                <Text className="font-mono text-sm text-charcoal/60">
+                  Permanently deletes {data.groupName} for everyone — every answer, photo, voice note,
+                  and newsletter. This can’t be undone.
+                </Text>
+                {!confirmingDeleteGroup ? (
+                  <Pressable
+                    onPress={() => setConfirmingDeleteGroup(true)}
+                    className="items-center rounded-full border border-red-300 px-4 py-3 active:opacity-70">
+                    <Text className="font-mono-bold text-red-600">Delete this group</Text>
+                  </Pressable>
+                ) : (
+                  <View className="gap-2">
+                    <Text className="font-mono text-sm text-charcoal">Are you sure? This can’t be undone.</Text>
+                    <View className="flex-row gap-3">
+                      <Pressable
+                        disabled={deletingGroup}
+                        onPress={deleteGroup}
+                        className="flex-1 items-center rounded-full bg-red-600 px-4 py-3 active:opacity-85 disabled:opacity-50">
+                        {deletingGroup ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text className="font-mono-bold text-white">Yes, delete it</Text>
+                        )}
+                      </Pressable>
+                      <Pressable
+                        disabled={deletingGroup}
+                        onPress={() => setConfirmingDeleteGroup(false)}
+                        className="flex-1 items-center rounded-full border border-paper-line px-4 py-3 active:opacity-70 disabled:opacity-50">
+                        <Text className="font-mono-bold text-charcoal">Cancel</Text>
+                      </Pressable>
+                    </View>
+                    {deleteGroupError && (
+                      <Text className="font-mono text-sm text-red-600">{deleteGroupError}</Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
