@@ -24,11 +24,22 @@ interface MediaAttachmentProps {
   kind: 'photo' | 'audio';
   existingMedia: MediaView[];
   onChange: () => void;
+  // Per-question cap, distinct from MEDIA_LIMITS.photo.maxPerCycle (the
+  // server-side pool shared across every photo question in the cycle — see
+  // media-quota.ts). The recipe question passes 1 here so "add a photo of
+  // it" doesn't turn into a second full photo gallery.
+  maxCount?: number;
 }
 
-export function MediaAttachment({ cycleId, questionId, kind, existingMedia, onChange }: MediaAttachmentProps) {
+export function MediaAttachment({ cycleId, questionId, kind, existingMedia, onChange, maxCount }: MediaAttachmentProps) {
   return kind === 'photo' ? (
-    <PhotoAttachment cycleId={cycleId} questionId={questionId} existingMedia={existingMedia} onChange={onChange} />
+    <PhotoAttachment
+      cycleId={cycleId}
+      questionId={questionId}
+      existingMedia={existingMedia}
+      onChange={onChange}
+      maxCount={maxCount ?? MEDIA_LIMITS.photo.maxPerCycle}
+    />
   ) : (
     <VoiceAttachment cycleId={cycleId} questionId={questionId} existingMedia={existingMedia} onChange={onChange} />
   );
@@ -83,12 +94,13 @@ function PhotoAttachment({
   questionId,
   existingMedia,
   onChange,
+  maxCount = MEDIA_LIMITS.photo.maxPerCycle,
 }: Omit<MediaAttachmentProps, 'kind'>) {
   const { uploadMedia, apiFetch } = useApiClient();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
-  const atLimit = existingMedia.length >= MEDIA_LIMITS.photo.maxPerCycle;
+  const atLimit = existingMedia.length >= maxCount;
 
   const pickAndUpload = useCallback(async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -162,8 +174,8 @@ function PhotoAttachment({
         ) : (
           <Text className="font-mono text-charcoal">
             {atLimit
-              ? `📸 Limit reached (${MEDIA_LIMITS.photo.maxPerCycle}) — remove one to add another`
-              : `📸 Add photo (${existingMedia.length}/${MEDIA_LIMITS.photo.maxPerCycle})`}
+              ? `📸 Limit reached (${maxCount}) — remove one to add another`
+              : `📸 Add photo (${existingMedia.length}/${maxCount})`}
           </Text>
         )}
       </Pressable>

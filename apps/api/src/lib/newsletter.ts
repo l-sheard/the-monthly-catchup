@@ -13,19 +13,24 @@ import {
 import type { Db } from '../db';
 import { sendEmail } from './email';
 import { signMediaUrl } from './media-signing';
-
-function escapeHtml(text: string) {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+import { COLOR, FONT, escapeHtml, normalizeUrl, pillLink, renderEmailShell } from './email-theme';
 
 interface MemberMedia {
   kind: 'photo' | 'audio';
   url: string;
 }
+
+// Mirrors apps/mobile/src/app/cycles/[id].tsx's QUESTION_EMOJI — keep in
+// sync by hand so a recipe question looks like a recipe question wherever
+// it's read.
+const QUESTION_EMOJI: Record<string, string> = {
+  text: '💬',
+  favourites: '⭐',
+  recipe: '🍳',
+  photo: '📸',
+  voice: '🎙️',
+  meetup: '📅',
+};
 
 /** Builds the compiled newsletter HTML from everyone's answers for a cycle. */
 export function renderNewsletterHtml(params: {
@@ -34,7 +39,7 @@ export function renderNewsletterHtml(params: {
   year: number;
   answersByMember: Array<{
     memberName: string;
-    answers: Array<{ prompt: string; body: string }>;
+    answers: Array<{ prompt: string; body: string; link: string | null; type: string }>;
     media: MemberMedia[];
   }>;
   suggestions: Array<{ authorName: string; bodyText: string }>;
@@ -49,11 +54,11 @@ export function renderNewsletterHtml(params: {
       const audioLinks = member.media.filter((m) => m.kind === 'audio');
 
       const photosHtml = photos.length
-        ? `<div style="margin:0 0 16px;">
+        ? `<div style="margin:0 0 14px;">
             ${photos
               .map(
                 (p) =>
-                  `<img src="${p.url}" width="260" style="max-width:100%;border-radius:12px;margin:0 8px 8px 0;" />`,
+                  `<img src="${p.url}" width="140" height="140" style="width:140px;height:140px;object-fit:cover;border-radius:12px;border:1px solid ${COLOR.sandLine};margin:0 8px 8px 0;" />`,
               )
               .join('')}
           </div>`
@@ -62,21 +67,37 @@ export function renderNewsletterHtml(params: {
       const audioHtml = audioLinks
         .map(
           (a, i) =>
-            `<p style="margin:0 0 8px;"><a href="${a.url}" style="color:#FF6B4A;font-size:14px;font-weight:600;">🎙️ Listen to voice note${audioLinks.length > 1 ? ` #${i + 1}` : ''}</a></p>`,
+            `<p style="margin:0 0 14px;">${pillLink(a.url, `🎙️ Listen to voice note${audioLinks.length > 1 ? ` #${i + 1}` : ''}`)}</p>`,
         )
         .join('');
 
+      const answersHtml = member.answers
+        .map(
+          (a) => `
+            <div style="margin:0 0 14px;">
+              <p style="margin:0 0 6px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${COLOR.primary};">${QUESTION_EMOJI[a.type] ?? '💬'}&nbsp; ${escapeHtml(a.prompt)}</p>
+              <div style="background:${COLOR.sand};border:1px solid ${COLOR.sandLine};border-radius:12px;padding:12px 14px;">
+                <p style="margin:0;font-family:${FONT};font-size:14px;line-height:1.55;color:${COLOR.charcoal};">${escapeHtml(a.body) || `<span style="color:${COLOR.charcoalFaint};font-style:italic;">No answer this month</span>`}</p>
+              </div>
+              ${a.link ? `<p style="margin:8px 0 0;">${pillLink(escapeHtml(normalizeUrl(a.link)), '🔗 View recipe')}</p>` : ''}
+            </div>`,
+        )
+        .join('');
+
+      const initial = escapeHtml(member.memberName.charAt(0).toUpperCase() || '?');
+
       return `
-        <tr><td style="padding:24px 0 8px;border-top:1px solid #eee;">
-          <h2 style="font-size:18px;margin:0 0 12px;color:#1C1815;">${escapeHtml(member.memberName)}</h2>
-          ${member.answers
-            .map(
-              (a) => `
-            <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#FF6B4A;text-transform:uppercase;letter-spacing:.03em;">${escapeHtml(a.prompt)}</p>
-            <p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#333;">${escapeHtml(a.body) || '<em style="color:#999;">No answer this month</em>'}</p>
-          `,
-            )
-            .join('')}
+        <tr><td style="padding:26px 32px 4px;border-top:1px solid ${COLOR.paperLine};">
+          <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+            <td width="26" height="26" align="center" valign="middle" style="width:26px;height:26px;border-radius:13px;background:rgba(242,119,106,.15);">
+              <span style="font-family:${FONT};font-size:11px;font-weight:700;color:${COLOR.primary};">${initial}</span>
+            </td>
+            <td style="padding-left:9px;">
+              <span style="font-family:${FONT};font-size:16px;font-weight:700;color:${COLOR.charcoal};">${escapeHtml(member.memberName)}</span>
+            </td>
+          </tr></table>
+          <div style="height:14px;"></div>
+          ${answersHtml}
           ${photosHtml}
           ${audioHtml}
         </td></tr>`;
@@ -85,36 +106,27 @@ export function renderNewsletterHtml(params: {
 
   const suggestionsSection = params.suggestions.length
     ? `
-      <tr><td style="padding:24px 0 8px;border-top:1px solid #eee;">
-        <h2 style="font-size:18px;margin:0 0 12px;color:#1C1815;">📅 Meetup suggestions</h2>
-        <ul style="margin:0;padding-left:20px;">
-          ${params.suggestions
-            .map(
-              (s) =>
-                `<li style="margin-bottom:8px;font-size:15px;color:#333;"><strong>${escapeHtml(s.authorName)}:</strong> ${escapeHtml(s.bodyText)}</li>`,
-            )
-            .join('')}
-        </ul>
+      <tr><td style="padding:26px 32px 30px;border-top:1px solid ${COLOR.paperLine};">
+        <p style="margin:0 0 12px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${COLOR.primary};">📅&nbsp; Meetup suggestions</p>
+        ${params.suggestions
+          .map(
+            (s) =>
+              `<div style="background:${COLOR.sand};border:1px solid ${COLOR.sandLine};border-radius:12px;padding:10px 14px;margin:0 0 8px;">
+                <p style="margin:0;font-family:${FONT};font-size:14px;line-height:1.5;color:${COLOR.charcoal};"><strong>${escapeHtml(s.authorName)}:</strong> ${escapeHtml(s.bodyText)}</p>
+              </div>`,
+          )
+          .join('')}
       </td></tr>`
     : '';
 
-  return `<!doctype html>
-<html>
-  <body style="margin:0;padding:0;background:#FFFBF7;font-family:-apple-system,Segoe UI,Roboto,sans-serif;">
-    <table role="presentation" width="100%" style="max-width:600px;margin:0 auto;padding:32px 24px;">
-      <tr><td>
-        <p style="font-size:13px;font-weight:700;color:#FF6B4A;text-transform:uppercase;letter-spacing:.05em;margin:0 0 4px;">💌 The Monthly Catch-Up</p>
-        <h1 style="font-size:26px;margin:0 0 4px;color:#1C1815;">${escapeHtml(params.groupName)}</h1>
-        <p style="font-size:14px;color:#999;margin:0;">${monthName} ${params.year}</p>
-      </td></tr>
-      ${memberSections}
-      ${suggestionsSection}
-      <tr><td style="padding-top:32px;">
-        <p style="font-size:12px;color:#aaa;">Sent by The Monthly Catch-Up — see everyone's answers any time in the app. Photo/voice-note links in this email expire in 90 days.</p>
-      </td></tr>
-    </table>
-  </body>
-</html>`;
+  return renderEmailShell({
+    eyebrow: '💌&nbsp; The Monthly Catch-Up',
+    title: params.groupName,
+    subtitle: `${monthName} ${params.year}`,
+    bodyRows: memberSections + suggestionsSection,
+    footerText:
+      "Sent by The Monthly Catch-Up — see everyone's answers any time in the app. Photo/voice-note links in this email expire in 90 days.",
+  });
 }
 
 /**
@@ -151,11 +163,11 @@ export async function sendNewsletterForCycle(
     .orderBy(questions.sortOrder);
 
   const allAnswers = await db.select().from(answers).where(eq(answers.cycleId, cycleId));
-  const answersByUserId = new Map<string, Map<string, string>>();
+  const answersByUserId = new Map<string, Map<string, { bodyText: string; linkUrl: string | null }>>();
   const answerIdToUserId = new Map<string, string>();
   for (const a of allAnswers) {
     if (!answersByUserId.has(a.userId)) answersByUserId.set(a.userId, new Map());
-    answersByUserId.get(a.userId)!.set(a.questionId, a.bodyText ?? '');
+    answersByUserId.get(a.userId)!.set(a.questionId, { bodyText: a.bodyText ?? '', linkUrl: a.linkUrl });
     answerIdToUserId.set(a.id, a.userId);
   }
 
@@ -191,7 +203,9 @@ export async function sendNewsletterForCycle(
         memberName: member.name,
         answers: allQuestions.map((q) => ({
           prompt: q.promptText,
-          body: theirAnswers.get(q.id) ?? '',
+          body: theirAnswers.get(q.id)?.bodyText ?? '',
+          link: theirAnswers.get(q.id)?.linkUrl ?? null,
+          type: q.type,
         })),
         media: mediaByUserId.get(member.id) ?? [],
       };

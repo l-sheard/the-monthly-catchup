@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { createDb } from './db';
 import { openCyclesForToday } from './jobs/open-cycles';
+import { sendNewslettersPastDeadline } from './jobs/send-newsletters';
 import { cyclesRoute } from './routes/cycles';
 import { groupsRoute } from './routes/groups';
 import { mediaRoute } from './routes/media';
@@ -35,10 +36,11 @@ export default {
 
   async scheduled(_event: ScheduledController, env: Bindings) {
     const db = createDb(env.DATABASE_URL);
-    const result = await openCyclesForToday(db);
-    console.log('openCyclesForToday:', JSON.stringify(result));
 
-    // TODO: deadline reminder emails (needs a reminder-sent flag on cycles)
-    // TODO: compile + send the newsletter when a cycle's deadline passes
+    const openResult = await openCyclesForToday(db, env);
+    console.log('openCyclesForToday:', JSON.stringify(openResult));
+
+    const sendResult = await sendNewslettersPastDeadline(db, env);
+    console.log('sendNewslettersPastDeadline:', JSON.stringify(sendResult));
   },
 };

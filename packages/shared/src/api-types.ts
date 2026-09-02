@@ -66,6 +66,7 @@ export interface CycleDetailResponse {
   groupName: string;
   questions: Question[];
   myAnswers: Record<string, string>; // questionId -> bodyText
+  myLinks: Record<string, string>; // questionId -> linkUrl (recipe questions only, in practice)
   myMedia: Record<string, MediaView[]>; // questionId -> attached media
   meetupSuggestions: MeetupSuggestionView[];
   members: GroupMemberView[];

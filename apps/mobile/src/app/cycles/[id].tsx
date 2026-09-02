@@ -20,6 +20,13 @@ import { MediaAttachment } from '@/components/media-attachment';
 const CARD = 'rounded-2xl border border-paper-line bg-white shadow-sm shadow-black/5';
 const PLACEHOLDER = '#7C9188';
 
+// Recipe links are free text (people paste them without a protocol), so add
+// one before handing to Linking.openURL — mirrors lib/newsletter.ts's
+// normalizeUrl on the API side.
+function normalizeUrl(url: string) {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
 const QUESTION_EMOJI: Record<string, string> = {
   text: '💬',
   favourites: '⭐',
@@ -38,6 +45,7 @@ export default function CycleDetailScreen() {
   const [data, setData] = useState<CycleDetailResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>({});
+  const [draftLinks, setDraftLinks] = useState<Record<string, string>>({});
   const [savingAnswers, setSavingAnswers] = useState(false);
   const [suggestionInput, setSuggestionInput] = useState('');
   const [addingSuggestion, setAddingSuggestion] = useState(false);
@@ -52,6 +60,7 @@ export default function CycleDetailScreen() {
       const detail = await apiFetch<CycleDetailResponse>(`/cycles/${id}`);
       setData(detail);
       setDraftAnswers(detail.myAnswers);
+      setDraftLinks(detail.myLinks);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load');
@@ -98,10 +107,13 @@ export default function CycleDetailScreen() {
       await Promise.all(
         data.questions.map((q) => {
           const bodyText = draftAnswers[q.id] ?? '';
-          if (bodyText === (data.myAnswers[q.id] ?? '')) return Promise.resolve(); // unchanged
+          const linkUrl = draftLinks[q.id] ?? '';
+          const unchanged =
+            bodyText === (data.myAnswers[q.id] ?? '') && linkUrl === (data.myLinks[q.id] ?? '');
+          if (unchanged) return Promise.resolve();
           return apiFetch('/cycles/answers', {
             method: 'POST',
-            body: JSON.stringify({ cycleId: data.cycle.id, questionId: q.id, bodyText }),
+            body: JSON.stringify({ cycleId: data.cycle.id, questionId: q.id, bodyText, linkUrl }),
           });
         }),
       );
@@ -247,6 +259,29 @@ export default function CycleDetailScreen() {
                       className="min-h-[64px] rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
                     />
                   )}
+                  {/* Recipe questions also get a link field, separate from
+                      the body text — a URL to the original recipe, not
+                      instructions typed out by hand. Saved together with the
+                      rest of the answers on "Save my answers", not live. */}
+                  {q.type === 'recipe' && (
+                    <TextInput
+                      value={draftLinks[q.id] ?? ''}
+                      onChangeText={(text) => setDraftLinks((prev) => ({ ...prev, [q.id]: text }))}
+                      placeholder="🔗 Link to the recipe (optional)"
+                      placeholderTextColor={PLACEHOLDER}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="url"
+                      className="rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
+                    />
+                  )}
+                  {q.type === 'recipe' && !!data.myLinks[q.id] && (
+                    <Pressable
+                      onPress={() => Linking.openURL(normalizeUrl(data.myLinks[q.id]))}
+                      className="self-start active:opacity-60">
+                      <Text className="font-mono text-xs text-primary">Open saved link ↗</Text>
+                    </Pressable>
+                  )}
                   {(q.type === 'photo' || q.type === 'voice' || q.type === 'recipe') && (
                     <MediaAttachment
                       cycleId={data.cycle.id}
@@ -254,6 +289,7 @@ export default function CycleDetailScreen() {
                       kind={q.type === 'voice' ? 'audio' : 'photo'}
                       existingMedia={data.myMedia[q.id] ?? []}
                       onChange={load}
+                      maxCount={q.type === 'recipe' ? 1 : undefined}
                     />
                   )}
                 </View>

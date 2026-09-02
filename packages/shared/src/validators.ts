@@ -12,6 +12,9 @@ export const submitAnswerInput = z.object({
   cycleId: z.uuid(),
   questionId: z.uuid(),
   bodyText: z.string().max(4000).optional(),
+  // Free text, not a strict URL schema — people paste links without a
+  // protocol ("notionsite.com/recipe") and this shouldn't reject those.
+  linkUrl: z.string().max(500).optional(),
 });
 
 // Server-side backstop, not a substitute for client-side compression.

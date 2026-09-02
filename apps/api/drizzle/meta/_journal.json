@@ -36,6 +36,13 @@
       "when": 1788342124022,
       "tag": "0004_sloppy_pixie",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788343592257,
+      "tag": "0005_familiar_captain_cross",
+      "breakpoints": true
     }
   ]
 }

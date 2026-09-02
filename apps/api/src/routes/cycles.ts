@@ -55,14 +55,21 @@ cyclesRoute.get('/:id', async (c) => {
     .orderBy(questions.sortOrder);
 
   const myAnswerRows = await db
-    .select({ id: answers.id, questionId: answers.questionId, bodyText: answers.bodyText })
+    .select({
+      id: answers.id,
+      questionId: answers.questionId,
+      bodyText: answers.bodyText,
+      linkUrl: answers.linkUrl,
+    })
     .from(answers)
     .where(and(eq(answers.cycleId, cycleId), eq(answers.userId, userId)));
 
   const myAnswers: Record<string, string> = {};
+  const myLinks: Record<string, string> = {};
   const questionIdByAnswerId = new Map<string, string>();
   for (const row of myAnswerRows) {
     myAnswers[row.questionId] = row.bodyText ?? '';
+    myLinks[row.questionId] = row.linkUrl ?? '';
     questionIdByAnswerId.set(row.id, row.questionId);
   }
 
@@ -122,6 +129,7 @@ cyclesRoute.get('/:id', async (c) => {
     groupName: group?.name ?? '',
     questions: cycleQuestions,
     myAnswers,
+    myLinks,
     myMedia,
     meetupSuggestions: suggestionRows,
     members: memberRows,
@@ -134,7 +142,7 @@ cyclesRoute.get('/:id', async (c) => {
 cyclesRoute.post('/answers', zValidator('json', submitAnswerInput), async (c) => {
   const db = c.get('db');
   const userId = c.get('userId');
-  const { cycleId, questionId, bodyText } = c.req.valid('json');
+  const { cycleId, questionId, bodyText, linkUrl } = c.req.valid('json');
 
   const [cycle] = await db.select().from(cycles).where(eq(cycles.id, cycleId)).limit(1);
   if (!cycle) return c.json({ error: 'Cycle not found' }, 404);
@@ -147,10 +155,10 @@ cyclesRoute.post('/answers', zValidator('json', submitAnswerInput), async (c) =>
 
   await db
     .insert(answers)
-    .values({ cycleId, questionId, userId, bodyText })
+    .values({ cycleId, questionId, userId, bodyText, linkUrl })
     .onConflictDoUpdate({
       target: [answers.cycleId, answers.userId, answers.questionId],
-      set: { bodyText, updatedAt: new Date() },
+      set: { bodyText, linkUrl, updatedAt: new Date() },
     });
 
   return c.json({ ok: true });

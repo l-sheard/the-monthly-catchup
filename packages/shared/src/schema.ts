@@ -121,6 +121,11 @@ export const answers = pgTable(
       .notNull()
       .references(() => questions.id, { onDelete: 'cascade' }),
     bodyText: text('body_text'),
+    // Only surfaced in the UI for recipe questions (e.g. a link to the
+    // original recipe site) — generic on the table like bodyText is, rather
+    // than recipe-specific, so it doesn't need its own table just to store
+    // one optional string per answer.
+    linkUrl: text('link_url'),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [unique().on(table.cycleId, table.userId, table.questionId)],
