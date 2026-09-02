@@ -15,7 +15,8 @@ import type { CycleDetailResponse } from '@stay-in-touch/shared';
 import { useApiClient } from '@/lib/api';
 import { MediaAttachment } from '@/components/media-attachment';
 
-const CARD = 'rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-black/5';
+const CARD = 'rounded-2xl border border-sage-line bg-white shadow-sm shadow-black/5';
+const PLACEHOLDER = '#7C9188';
 
 const QUESTION_EMOJI: Record<string, string> = {
   text: '💬',
@@ -126,21 +127,21 @@ export default function CycleDetailScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-neutral-50">
+    <SafeAreaView className="flex-1 bg-sage">
       <ScrollView contentContainerClassName="items-center px-6 py-8 gap-4" className="flex-1">
         <View className="w-full max-w-xl">
           <Pressable
             onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
             className="mb-3 self-start active:opacity-60">
-            <Text className="text-sm font-medium text-charcoal/50">← Back</Text>
+            <Text className="font-mono text-sm text-charcoal/60">← Back</Text>
           </Pressable>
 
           {data && (
             <>
-              <Text className="text-3xl font-extrabold tracking-tight text-charcoal">
+              <Text className="font-mono-bold text-3xl tracking-tight text-charcoal">
                 {data.groupName}
               </Text>
-              <Text className="mt-1 text-sm text-charcoal/50">
+              <Text className="mt-1 font-mono text-sm text-charcoal/60">
                 {new Date(data.cycle.deadlineAt).toLocaleDateString('en-US', {
                   month: 'long',
                   day: 'numeric',
@@ -152,19 +153,19 @@ export default function CycleDetailScreen() {
         </View>
 
         {error && (
-          <Text className="w-full max-w-xl rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">
+          <Text className="w-full max-w-xl rounded-xl bg-red-50 px-3 py-2 font-mono text-sm text-red-600">
             {error}
           </Text>
         )}
 
-        {!data && !error && <ActivityIndicator className="mt-8" color="#FF6B4A" />}
+        {!data && !error && <ActivityIndicator className="mt-8" color="#F2776A" />}
 
         {data && (
           <View className="w-full max-w-xl gap-4">
             <View className={`gap-5 p-5 ${CARD}`}>
               {data.questions.map((q) => (
                 <View key={q.id} className="gap-2">
-                  <Text className="text-sm font-semibold text-charcoal">
+                  <Text className="font-mono-bold text-sm text-charcoal">
                     {QUESTION_EMOJI[q.type] ?? '💬'} {q.promptText}
                   </Text>
                   <TextInput
@@ -174,8 +175,8 @@ export default function CycleDetailScreen() {
                     placeholder={
                       q.type === 'photo' || q.type === 'voice' ? 'Caption (optional)…' : 'Your answer…'
                     }
-                    placeholderTextColor="#A3A3A3"
-                    className="min-h-[64px] rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-charcoal"
+                    placeholderTextColor={PLACEHOLDER}
+                    className="min-h-[64px] rounded-xl border border-sage-line bg-sand px-4 py-3 font-mono text-charcoal"
                   />
                   {(q.type === 'photo' || q.type === 'voice') && (
                     <MediaAttachment
@@ -191,22 +192,22 @@ export default function CycleDetailScreen() {
               <Pressable
                 disabled={savingAnswers}
                 onPress={saveAnswers}
-                className="items-center rounded-xl bg-primary px-4 py-3 shadow-sm shadow-primary/30 active:opacity-85 disabled:opacity-50">
-                <Text className="font-semibold text-white">
+                className="items-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-50">
+                <Text className="font-mono-bold text-white">
                   {savingAnswers ? 'Saving…' : 'Save my answers'}
                 </Text>
               </Pressable>
             </View>
 
             <View className={`gap-3 p-5 ${CARD}`}>
-              <Text className="font-semibold text-charcoal">📅 Meetup suggestions</Text>
+              <Text className="font-mono-bold text-charcoal">📅 Meetup suggestions</Text>
               {data.meetupSuggestions.length === 0 && (
-                <Text className="text-sm text-charcoal/50">No suggestions yet — add one below.</Text>
+                <Text className="font-mono text-sm text-charcoal/60">No suggestions yet — add one below.</Text>
               )}
               {data.meetupSuggestions.map((s) => (
-                <View key={s.id} className="rounded-xl bg-neutral-50 px-3 py-2">
-                  <Text className="text-sm text-charcoal">
-                    <Text className="font-semibold">{s.authorName}: </Text>
+                <View key={s.id} className="rounded-xl bg-sand px-3 py-2">
+                  <Text className="font-mono text-sm text-charcoal">
+                    <Text className="font-mono-bold">{s.authorName}: </Text>
                     {s.bodyText}
                   </Text>
                 </View>
@@ -216,33 +217,33 @@ export default function CycleDetailScreen() {
                   value={suggestionInput}
                   onChangeText={setSuggestionInput}
                   placeholder="e.g. Picnic in the park?"
-                  placeholderTextColor="#A3A3A3"
-                  className="flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-charcoal"
+                  placeholderTextColor={PLACEHOLDER}
+                  className="flex-1 rounded-xl border border-sage-line bg-sand px-4 py-3 font-mono text-charcoal"
                 />
                 <Pressable
                   disabled={addingSuggestion}
                   onPress={addSuggestion}
-                  className="items-center justify-center rounded-xl bg-primary px-4 py-3 shadow-sm shadow-primary/30 active:opacity-85 disabled:opacity-50">
-                  <Text className="font-semibold text-white">Add</Text>
+                  className="items-center justify-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-50">
+                  <Text className="font-mono-bold text-white">Add</Text>
                 </Pressable>
               </View>
             </View>
 
             <View className={`gap-2 p-5 ${CARD}`}>
-              <Text className="font-semibold text-charcoal">💌 Newsletter</Text>
-              <Text className="text-sm text-charcoal/50">
+              <Text className="font-mono-bold text-charcoal">💌 Newsletter</Text>
+              <Text className="font-mono text-sm text-charcoal/60">
                 Normally this compiles and sends automatically at the deadline — this button triggers
                 it manually so you can see the email now.
               </Text>
               <Pressable
                 disabled={sending}
                 onPress={sendNewsletter}
-                className="items-center rounded-xl border border-neutral-200 px-4 py-3 active:opacity-70 disabled:opacity-50">
-                <Text className="font-semibold text-charcoal">
+                className="items-center rounded-full border border-sage-line px-4 py-3 active:opacity-70 disabled:opacity-50">
+                <Text className="font-mono-bold text-charcoal">
                   {sending ? 'Sending…' : 'Send newsletter now'}
                 </Text>
               </Pressable>
-              {sendResult && <Text className="text-sm text-charcoal/70">{sendResult}</Text>}
+              {sendResult && <Text className="font-mono text-sm text-charcoal/70">{sendResult}</Text>}
             </View>
           </View>
         )}

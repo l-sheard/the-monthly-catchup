@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@clerk/expo": "^4.6.1",
+    "@expo-google-fonts/space-mono": "^0.4.2",
     "@expo/ui": "~57.0.14",
     "@stay-in-touch/shared": "workspace:^",
     "expo": "~57.0.18",

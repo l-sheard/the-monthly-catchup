@@ -30,16 +30,16 @@ export default function SignInScreen() {
   }, [startSSOFlow, router]);
 
   return (
-    <SafeAreaView className="flex-1 items-center justify-center bg-neutral-50 px-6">
-      <View className="w-full max-w-sm items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-8 py-10 shadow-sm shadow-black/5">
+    <SafeAreaView className="flex-1 items-center justify-center bg-sage px-6">
+      <View className="w-full max-w-sm items-center gap-3 rounded-2xl border border-sage-line bg-white px-8 py-10 shadow-sm shadow-black/5">
         <View className="mb-1 h-16 w-16 items-center justify-center rounded-full bg-primary/10">
           <Text className="text-3xl">💌</Text>
         </View>
 
-        <Text className="text-center text-2xl font-extrabold tracking-tight text-charcoal">
+        <Text className="text-center font-mono-bold text-2xl tracking-tight text-charcoal">
           The Monthly Catch-Up
         </Text>
-        <Text className="text-center text-base leading-6 text-charcoal/50">
+        <Text className="text-center font-mono text-base leading-6 text-charcoal/60">
           One email a month, packed with everything your friends have been up to. Sign in to join
           in.
         </Text>
@@ -47,11 +47,11 @@ export default function SignInScreen() {
         <Pressable
           disabled={loading}
           onPress={onGooglePress}
-          className="mt-4 w-full flex-row items-center justify-center gap-2 rounded-xl bg-primary px-6 py-4 shadow-sm shadow-primary/30 active:opacity-85 disabled:opacity-60">
+          className="mt-4 w-full flex-row items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-60">
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text className="text-base font-semibold text-white">Continue with Google</Text>
+            <Text className="font-mono-bold text-base text-white">Continue with Google</Text>
           )}
         </Pressable>
 

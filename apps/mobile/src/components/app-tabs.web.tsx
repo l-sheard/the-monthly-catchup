@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 
 import { ThemedText } from './themed-text';
 
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 
 // Single destination for now, so there's nothing to switch between visibly —
 // but the Tabs navigator still needs at least one registered TabTrigger or
@@ -20,7 +20,9 @@ export default function AppTabs() {
       </TabList>
       <View style={styles.header}>
         <View style={styles.headerInner}>
-          <ThemedText type="smallBold">💌 The Monthly Catch-Up</ThemedText>
+          <ThemedText type="smallBold" style={styles.headerText}>
+            💌 The Monthly Catch-Up
+          </ThemedText>
         </View>
       </View>
     </Tabs>
@@ -36,9 +38,12 @@ const styles = StyleSheet.create({
     top: 0,
     width: '100%',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.light.background,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
+    borderBottomColor: Colors.light.textSecondary + '40',
+  },
+  headerText: {
+    fontFamily: 'SpaceMono_700Bold',
   },
   headerInner: {
     width: '100%',

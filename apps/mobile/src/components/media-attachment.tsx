@@ -152,18 +152,18 @@ function PhotoAttachment({
       <Pressable
         disabled={uploading || atLimit}
         onPress={pickAndUpload}
-        className="flex-row items-center gap-2 self-start rounded-xl border border-neutral-200 px-4 py-2 active:opacity-70 disabled:opacity-50">
+        className="flex-row items-center gap-2 self-start rounded-full border border-sage-line px-4 py-2 active:opacity-70 disabled:opacity-50">
         {uploading ? (
-          <ActivityIndicator size="small" color="#FF6B4A" />
+          <ActivityIndicator size="small" color="#F2776A" />
         ) : (
-          <Text className="font-medium text-charcoal">
+          <Text className="font-mono text-charcoal">
             {atLimit
               ? `📸 Limit reached (${MEDIA_LIMITS.photo.maxPerCycle}) — remove one to add another`
               : `📸 Add photo (${existingMedia.length}/${MEDIA_LIMITS.photo.maxPerCycle})`}
           </Text>
         )}
       </Pressable>
-      {error && <Text className="text-sm text-red-600">{error}</Text>}
+      {error && <Text className="font-mono text-sm text-red-600">{error}</Text>}
     </View>
   );
 }
@@ -184,11 +184,11 @@ function PhotoThumbnail({
       {uri ? (
         <Image source={{ uri }} className="h-24 w-24 rounded-xl" resizeMode="cover" />
       ) : (
-        <View className="h-24 w-24 items-center justify-center rounded-xl bg-neutral-100">
+        <View className="h-24 w-24 items-center justify-center rounded-xl bg-sand">
           {error ? (
-            <Text className="text-xs text-red-500">Failed</Text>
+            <Text className="font-mono text-xs text-red-500">Failed</Text>
           ) : (
-            <ActivityIndicator size="small" color="#FF6B4A" />
+            <ActivityIndicator size="small" color="#F2776A" />
           )}
         </View>
       )}
@@ -199,7 +199,7 @@ function PhotoThumbnail({
         {removing ? (
           <ActivityIndicator size="small" color="#fff" />
         ) : (
-          <Text className="text-xs font-bold text-white">✕</Text>
+          <Text className="font-mono-bold text-xs text-white">✕</Text>
         )}
       </Pressable>
     </View>
@@ -275,9 +275,9 @@ function VoiceAttachment({
 
   if (uploading) {
     return (
-      <View className="flex-row items-center gap-2 self-start rounded-xl border border-neutral-200 px-4 py-2">
-        <ActivityIndicator size="small" color="#FF6B4A" />
-        <Text className="font-medium text-charcoal">Uploading…</Text>
+      <View className="flex-row items-center gap-2 self-start rounded-full border border-sage-line px-4 py-2">
+        <ActivityIndicator size="small" color="#F2776A" />
+        <Text className="font-mono text-charcoal">Uploading…</Text>
       </View>
     );
   }
@@ -287,9 +287,9 @@ function VoiceAttachment({
       <View className="gap-2">
         <Pressable
           onPress={stopAndUpload}
-          className="flex-row items-center gap-2 self-start rounded-xl bg-red-500 px-4 py-2 active:opacity-85">
+          className="flex-row items-center gap-2 self-start rounded-full bg-red-500 px-4 py-2 active:opacity-85">
           <View className="h-2 w-2 rounded-full bg-white" />
-          <Text className="font-medium text-white">
+          <Text className="font-mono text-white">
             Stop ({Math.round(recorderState.durationMillis / 1000)}s)
           </Text>
         </Pressable>
@@ -310,11 +310,11 @@ function VoiceAttachment({
       {!atLimit && (
         <Pressable
           onPress={startRecording}
-          className="flex-row items-center gap-2 self-start rounded-xl border border-neutral-200 px-4 py-2 active:opacity-70">
-          <Text className="font-medium text-charcoal">🎙️ Record voice note</Text>
+          className="flex-row items-center gap-2 self-start rounded-full border border-sage-line px-4 py-2 active:opacity-70">
+          <Text className="font-mono text-charcoal">🎙️ Record voice note</Text>
         </Pressable>
       )}
-      {error && <Text className="text-sm text-red-600">{error}</Text>}
+      {error && <Text className="font-mono text-sm text-red-600">{error}</Text>}
     </View>
   );
 }
@@ -341,9 +341,9 @@ function VoiceNotePlayer({
   };
 
   return (
-    <View className="flex-row items-center gap-3 self-start rounded-xl border border-neutral-200 px-4 py-2">
+    <View className="flex-row items-center gap-3 self-start rounded-full border border-sage-line px-4 py-2">
       <Pressable onPress={toggle} disabled={!uri} className="disabled:opacity-50">
-        <Text className="font-medium text-charcoal">
+        <Text className="font-mono text-charcoal">
           {error
             ? '⚠️ Failed to load'
             : `${status.playing ? '⏸ Pause' : '▶ Play'}${durationSeconds ? ` (${Math.round(durationSeconds)}s)` : ''}`}
@@ -351,9 +351,9 @@ function VoiceNotePlayer({
       </Pressable>
       <Pressable disabled={removing} onPress={onRemove} className="disabled:opacity-50">
         {removing ? (
-          <ActivityIndicator size="small" color="#FF6B4A" />
+          <ActivityIndicator size="small" color="#F2776A" />
         ) : (
-          <Text className="text-sm font-bold text-red-500">✕ Remove</Text>
+          <Text className="font-mono-bold text-sm text-red-500">✕ Remove</Text>
         )}
       </Pressable>
     </View>
