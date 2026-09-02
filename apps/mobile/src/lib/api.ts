@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/expo';
 import { useCallback } from 'react';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL!;
+export const API_URL = process.env.EXPO_PUBLIC_API_URL!;
 
 if (!API_URL) {
   throw new Error('Add EXPO_PUBLIC_API_URL to apps/mobile/.env.local');

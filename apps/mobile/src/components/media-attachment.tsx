@@ -1,38 +1,92 @@
+import { useAuth } from '@clerk/expo';
 import * as ImagePicker from 'expo-image-picker';
-import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
-import { useCallback, useState } from 'react';
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from 'expo-audio';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Platform, Pressable, Text, View } from 'react-native';
 
-import { useApiClient } from '@/lib/api';
+import { API_URL, useApiClient } from '@/lib/api';
 import { MEDIA_LIMITS } from '@stay-in-touch/shared';
+import type { MediaView } from '@stay-in-touch/shared';
 
 interface MediaAttachmentProps {
   cycleId: string;
   questionId: string;
   kind: 'photo' | 'audio';
-  existingCount: number;
-  onUploaded: () => void;
+  existingMedia: MediaView[];
+  onChange: () => void;
 }
 
-export function MediaAttachment({ cycleId, questionId, kind, existingCount, onUploaded }: MediaAttachmentProps) {
+export function MediaAttachment({ cycleId, questionId, kind, existingMedia, onChange }: MediaAttachmentProps) {
   return kind === 'photo' ? (
-    <PhotoAttachment cycleId={cycleId} questionId={questionId} existingCount={existingCount} onUploaded={onUploaded} />
+    <PhotoAttachment cycleId={cycleId} questionId={questionId} existingMedia={existingMedia} onChange={onChange} />
   ) : (
-    <VoiceAttachment cycleId={cycleId} questionId={questionId} existingCount={existingCount} onUploaded={onUploaded} />
+    <VoiceAttachment cycleId={cycleId} questionId={questionId} existingMedia={existingMedia} onChange={onChange} />
   );
+}
+
+/**
+ * Fetches an authenticated GET /media/:id and hands back a data URI. Neither
+ * <Image>'s nor the audio player's `source` can be trusted to attach an
+ * Authorization header cross-platform — a plain `<img>`/`<audio>` tag on web
+ * has no way to set request headers at all — so, same as the in-app media
+ * viewer this mirrors, we fetch the bytes ourselves and hand back a blob.
+ */
+function useMediaBlobUri(mediaId: string) {
+  const { getToken } = useAuth();
+  const [uri, setUri] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setUri(null);
+    setError(false);
+    (async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`${API_URL}/media/${mediaId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!res.ok) throw new Error('Failed to load media');
+        const blob = await res.blob();
+        const dataUri = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('Failed to read media'));
+          reader.readAsDataURL(blob);
+        });
+        if (!cancelled) setUri(dataUri);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaId]);
+
+  return { uri, error };
 }
 
 function PhotoAttachment({
   cycleId,
   questionId,
-  existingCount,
-  onUploaded,
+  existingMedia,
+  onChange,
 }: Omit<MediaAttachmentProps, 'kind'>) {
-  const { uploadMedia } = useApiClient();
-  const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const { uploadMedia, apiFetch } = useApiClient();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const atLimit = existingCount >= MEDIA_LIMITS.photo.maxPerCycle;
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const atLimit = existingMedia.length >= MEDIA_LIMITS.photo.maxPerCycle;
 
   const pickAndUpload = useCallback(async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -48,7 +102,6 @@ function PhotoAttachment({
     if (result.canceled || !result.assets[0]) return;
 
     const asset = result.assets[0];
-    setLocalPreview(asset.uri);
     setUploading(true);
     setError(null);
     try {
@@ -58,18 +111,43 @@ function PhotoAttachment({
         { uri: asset.uri, name: asset.fileName ?? 'photo.jpg', type: asset.mimeType ?? 'image/jpeg' },
         'photo',
       );
-      onUploaded();
+      onChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);
     }
-  }, [cycleId, questionId, uploadMedia, onUploaded]);
+  }, [cycleId, questionId, uploadMedia, onChange]);
+
+  const remove = useCallback(
+    async (id: string) => {
+      setRemovingId(id);
+      setError(null);
+      try {
+        await apiFetch(`/media/${id}`, { method: 'DELETE' });
+        onChange();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to remove photo');
+      } finally {
+        setRemovingId(null);
+      }
+    },
+    [apiFetch, onChange],
+  );
 
   return (
     <View className="gap-2">
-      {localPreview && (
-        <Image source={{ uri: localPreview }} className="h-32 w-32 rounded-xl" resizeMode="cover" />
+      {existingMedia.length > 0 && (
+        <View className="flex-row flex-wrap gap-2">
+          {existingMedia.map((item) => (
+            <PhotoThumbnail
+              key={item.id}
+              mediaId={item.id}
+              removing={removingId === item.id}
+              onRemove={() => remove(item.id)}
+            />
+          ))}
+        </View>
       )}
       <Pressable
         disabled={uploading || atLimit}
@@ -79,7 +157,9 @@ function PhotoAttachment({
           <ActivityIndicator size="small" color="#FF6B4A" />
         ) : (
           <Text className="font-medium text-charcoal">
-            {atLimit ? `📸 Limit reached (${MEDIA_LIMITS.photo.maxPerCycle})` : `📸 Add photo (${existingCount}/${MEDIA_LIMITS.photo.maxPerCycle})`}
+            {atLimit
+              ? `📸 Limit reached (${MEDIA_LIMITS.photo.maxPerCycle}) — remove one to add another`
+              : `📸 Add photo (${existingMedia.length}/${MEDIA_LIMITS.photo.maxPerCycle})`}
           </Text>
         )}
       </Pressable>
@@ -88,18 +168,58 @@ function PhotoAttachment({
   );
 }
 
+function PhotoThumbnail({
+  mediaId,
+  removing,
+  onRemove,
+}: {
+  mediaId: string;
+  removing: boolean;
+  onRemove: () => void;
+}) {
+  const { uri, error } = useMediaBlobUri(mediaId);
+
+  return (
+    <View className="relative h-24 w-24">
+      {uri ? (
+        <Image source={{ uri }} className="h-24 w-24 rounded-xl" resizeMode="cover" />
+      ) : (
+        <View className="h-24 w-24 items-center justify-center rounded-xl bg-neutral-100">
+          {error ? (
+            <Text className="text-xs text-red-500">Failed</Text>
+          ) : (
+            <ActivityIndicator size="small" color="#FF6B4A" />
+          )}
+        </View>
+      )}
+      <Pressable
+        disabled={removing}
+        onPress={onRemove}
+        className="absolute -right-2 -top-2 h-6 w-6 items-center justify-center rounded-full bg-charcoal shadow-sm shadow-black/20 disabled:opacity-50">
+        {removing ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text className="text-xs font-bold text-white">✕</Text>
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
 function VoiceAttachment({
   cycleId,
   questionId,
-  existingCount,
-  onUploaded,
+  existingMedia,
+  onChange,
 }: Omit<MediaAttachmentProps, 'kind'>) {
-  const { uploadMedia } = useApiClient();
+  const { uploadMedia, apiFetch } = useApiClient();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const atLimit = existingCount >= MEDIA_LIMITS.audio.maxPerCycle;
+  const [removing, setRemoving] = useState(false);
+  const atLimit = existingMedia.length >= MEDIA_LIMITS.audio.maxPerCycle;
+  const existing = existingMedia[0] ?? null;
 
   const startRecording = useCallback(async () => {
     const permission = await requestRecordingPermissionsAsync();
@@ -131,13 +251,27 @@ function VoiceAttachment({
         'audio',
         recorderState.durationMillis / 1000,
       );
-      onUploaded();
+      onChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);
     }
-  }, [recorder, recorderState.durationMillis, cycleId, questionId, uploadMedia, onUploaded]);
+  }, [recorder, recorderState.durationMillis, cycleId, questionId, uploadMedia, onChange]);
+
+  const remove = useCallback(async () => {
+    if (!existing) return;
+    setRemoving(true);
+    setError(null);
+    try {
+      await apiFetch(`/media/${existing.id}`, { method: 'DELETE' });
+      onChange();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove voice note');
+    } finally {
+      setRemoving(false);
+    }
+  }, [apiFetch, existing, onChange]);
 
   if (uploading) {
     return (
@@ -165,15 +299,63 @@ function VoiceAttachment({
 
   return (
     <View className="gap-2">
-      <Pressable
-        disabled={atLimit}
-        onPress={startRecording}
-        className="flex-row items-center gap-2 self-start rounded-xl border border-neutral-200 px-4 py-2 active:opacity-70 disabled:opacity-50">
+      {existing && (
+        <VoiceNotePlayer
+          mediaId={existing.id}
+          durationSeconds={existing.durationSeconds}
+          removing={removing}
+          onRemove={remove}
+        />
+      )}
+      {!atLimit && (
+        <Pressable
+          onPress={startRecording}
+          className="flex-row items-center gap-2 self-start rounded-xl border border-neutral-200 px-4 py-2 active:opacity-70">
+          <Text className="font-medium text-charcoal">🎙️ Record voice note</Text>
+        </Pressable>
+      )}
+      {error && <Text className="text-sm text-red-600">{error}</Text>}
+    </View>
+  );
+}
+
+function VoiceNotePlayer({
+  mediaId,
+  durationSeconds,
+  removing,
+  onRemove,
+}: {
+  mediaId: string;
+  durationSeconds: number | null;
+  removing: boolean;
+  onRemove: () => void;
+}) {
+  const { uri, error } = useMediaBlobUri(mediaId);
+  const player = useAudioPlayer(uri ?? null);
+  const status = useAudioPlayerStatus(player);
+
+  const toggle = () => {
+    if (!uri) return;
+    if (status.playing) player.pause();
+    else player.play();
+  };
+
+  return (
+    <View className="flex-row items-center gap-3 self-start rounded-xl border border-neutral-200 px-4 py-2">
+      <Pressable onPress={toggle} disabled={!uri} className="disabled:opacity-50">
         <Text className="font-medium text-charcoal">
-          {atLimit ? '🎙️ Voice note already recorded' : '🎙️ Record voice note'}
+          {error
+            ? '⚠️ Failed to load'
+            : `${status.playing ? '⏸ Pause' : '▶ Play'}${durationSeconds ? ` (${Math.round(durationSeconds)}s)` : ''}`}
         </Text>
       </Pressable>
-      {error && <Text className="text-sm text-red-600">{error}</Text>}
+      <Pressable disabled={removing} onPress={onRemove} className="disabled:opacity-50">
+        {removing ? (
+          <ActivityIndicator size="small" color="#FF6B4A" />
+        ) : (
+          <Text className="text-sm font-bold text-red-500">✕ Remove</Text>
+        )}
+      </Pressable>
     </View>
   );
 }

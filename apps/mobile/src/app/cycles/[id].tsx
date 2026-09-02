@@ -180,8 +180,8 @@ export default function CycleDetailScreen() {
                       cycleId={data.cycle.id}
                       questionId={q.id}
                       kind={q.type === 'photo' ? 'photo' : 'audio'}
-                      existingCount={data.myMedia[q.id]?.length ?? 0}
-                      onUploaded={load}
+                      existingMedia={data.myMedia[q.id] ?? []}
+                      onChange={load}
                     />
                   )}
                 </View>

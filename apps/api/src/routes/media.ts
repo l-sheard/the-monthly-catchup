@@ -132,6 +132,46 @@ mediaRoute.get('/:id', requireAuth, async (c) => {
   });
 });
 
+// Lets a member remove their own attachment (e.g. to re-record a voice note
+// or swap a photo) so they aren't stuck once a per-cycle quota is hit.
+// Ownership is checked against the answer's userId, not just group
+// membership — assertGroupMember alone would let any group member delete
+// anyone else's media.
+mediaRoute.delete('/:id', requireAuth, async (c) => {
+  const db = c.get('db');
+  const userId = c.get('userId');
+  const mediaId = c.req.param('id');
+
+  const [row] = await db
+    .select({
+      storagePath: mediaTable.storagePath,
+      groupId: cycles.groupId,
+      ownerId: answers.userId,
+    })
+    .from(mediaTable)
+    .innerJoin(answers, eq(mediaTable.answerId, answers.id))
+    .innerJoin(cycles, eq(answers.cycleId, cycles.id))
+    .where(eq(mediaTable.id, mediaId))
+    .limit(1);
+
+  if (!row) return c.json({ error: 'Not found' }, 404);
+
+  try {
+    await assertGroupMember(db, row.groupId, userId);
+  } catch {
+    return c.json({ error: 'Not a member of this group' }, 403);
+  }
+
+  if (row.ownerId !== userId) {
+    return c.json({ error: 'You can only remove your own media' }, 403);
+  }
+
+  await c.env.MEDIA_BUCKET.delete(row.storagePath);
+  await db.delete(mediaTable).where(eq(mediaTable.id, mediaId));
+
+  return c.json({ ok: true });
+});
+
 // Deliberately NOT behind requireAuth — this is what makes embedding media in
 // an email possible at all, since a mail client can't attach an Authorization
 // header. Possession of a valid, unexpired HMAC signature (see
