@@ -15,6 +15,7 @@ export interface GroupSummary extends Pick<Group, 'id' | 'name' | 'inviteCode'> 
   // The group's newest cycle, whatever its status — see the /groups route
   // for why this isn't filtered to only 'open' cycles.
   currentCycle: Cycle | null;
+  members: GroupMemberView[];
 }
 
 export interface ListMyGroupsResponse {

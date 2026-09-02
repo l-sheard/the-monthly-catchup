@@ -2,7 +2,8 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { eq, inArray, desc } from 'drizzle-orm';
 import { createGroupInput, joinGroupInput } from '@stay-in-touch/shared/validators';
-import { groups, groupMembers, cycles, newsletters } from '@stay-in-touch/shared/schema';
+import { groups, groupMembers, cycles, newsletters, users } from '@stay-in-touch/shared/schema';
+import type { GroupMemberView } from '@stay-in-touch/shared';
 import { requireAuth } from '../middleware/auth';
 import { assertGroupMember } from '../lib/authz';
 import { signMediaUrl } from '../lib/media-signing';
@@ -50,8 +51,31 @@ groupsRoute.get('/', async (c) => {
     if (!cycleByGroupId.has(cycle.groupId)) cycleByGroupId.set(cycle.groupId, cycle);
   }
 
+  // One query for every member of every group the caller is in, rather than
+  // one query per group — same batching approach as the cycle lookup above.
+  const memberRows = await db
+    .select({ groupId: groupMembers.groupId, id: users.id, name: users.name, role: groupMembers.role })
+    .from(groupMembers)
+    .innerJoin(users, eq(users.id, groupMembers.userId))
+    .where(
+      inArray(
+        groupMembers.groupId,
+        myGroups.map((g) => g.id),
+      ),
+    );
+
+  const membersByGroupId = new Map<string, GroupMemberView[]>();
+  for (const row of memberRows) {
+    if (!membersByGroupId.has(row.groupId)) membersByGroupId.set(row.groupId, []);
+    membersByGroupId.get(row.groupId)!.push({ id: row.id, name: row.name, role: row.role });
+  }
+
   return c.json({
-    groups: myGroups.map((group) => ({ ...group, currentCycle: cycleByGroupId.get(group.id) ?? null })),
+    groups: myGroups.map((group) => ({
+      ...group,
+      currentCycle: cycleByGroupId.get(group.id) ?? null,
+      members: membersByGroupId.get(group.id) ?? [],
+    })),
   });
 });
 

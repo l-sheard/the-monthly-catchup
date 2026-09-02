@@ -74,13 +74,27 @@ function GroupCard({ group }: { group: GroupSummary }) {
     <Pressable
       disabled={!cycleId}
       onPress={() => cycleId && router.push({ pathname: '/cycles/[id]', params: { id: cycleId } })}
-      className={`w-full gap-2 p-5 ${CARD} ${cycleId ? 'active:opacity-80' : ''}`}>
-      <View className="flex-row items-center justify-between">
-        <Text className="font-mono-bold text-lg text-charcoal">{group.name}</Text>
-        <View className="h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-          <Text className="text-base">👋</Text>
-        </View>
+      className={`w-full gap-3 p-5 ${CARD} ${cycleId ? 'active:opacity-80' : ''}`}>
+      <Text className="font-mono-bold text-lg text-charcoal">{group.name}</Text>
+
+      <View className="flex-row flex-wrap gap-2">
+        {group.members.map((member) => (
+          <View
+            key={member.id}
+            className="flex-row items-center gap-1.5 rounded-full border border-paper-line bg-sand px-3 py-1.5">
+            <View className="h-5 w-5 items-center justify-center rounded-full bg-primary/15">
+              <Text className="font-mono-bold text-[10px] text-primary">
+                {member.name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <Text className="font-mono text-xs text-charcoal">
+              {member.name}
+              {member.role === 'owner' ? ' 👑' : ''}
+            </Text>
+          </View>
+        ))}
       </View>
+
       {label ? (
         <View className="flex-row items-center gap-2">
           <View className={`h-2 w-2 rounded-full ${dot}`} />

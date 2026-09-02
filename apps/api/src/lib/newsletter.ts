@@ -71,15 +71,26 @@ export function renderNewsletterHtml(params: {
         )
         .join('');
 
+      // Only questions this member actually answered — a blank text
+      // question (or a recipe with neither body nor link) contributes
+      // nothing worth reading, so it's left out entirely rather than shown
+      // as an empty box or a "No answer this month" placeholder. Photo/
+      // voice questions never have body/link (their content is `media`,
+      // rendered separately below), so they're naturally excluded here too.
       const answersHtml = member.answers
+        .filter((a) => a.body.trim() !== '' || a.link)
         .map(
           (a) => `
             <div style="margin:0 0 14px;">
               <p style="margin:0 0 6px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${COLOR.primary};">${QUESTION_EMOJI[a.type] ?? '💬'}&nbsp; ${escapeHtml(a.prompt)}</p>
-              <div style="background:${COLOR.sand};border:1px solid ${COLOR.sandLine};border-radius:12px;padding:12px 14px;">
-                <p style="margin:0;font-family:${FONT};font-size:14px;line-height:1.55;color:${COLOR.charcoal};">${escapeHtml(a.body) || `<span style="color:${COLOR.charcoalFaint};font-style:italic;">No answer this month</span>`}</p>
-              </div>
-              ${a.link ? `<p style="margin:8px 0 0;">${pillLink(escapeHtml(normalizeUrl(a.link)), '🔗 View recipe')}</p>` : ''}
+              ${
+                a.body.trim()
+                  ? `<div style="background:${COLOR.sand};border:1px solid ${COLOR.sandLine};border-radius:12px;padding:12px 14px;">
+                <p style="margin:0;font-family:${FONT};font-size:14px;line-height:1.55;color:${COLOR.charcoal};">${escapeHtml(a.body)}</p>
+              </div>`
+                  : ''
+              }
+              ${a.link ? `<p style="margin:${a.body.trim() ? '8px' : '0'} 0 0;">${pillLink(escapeHtml(normalizeUrl(a.link)), '🔗 View recipe')}</p>` : ''}
             </div>`,
         )
         .join('');
