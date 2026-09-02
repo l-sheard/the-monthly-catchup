@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { eq, inArray, desc } from 'drizzle-orm';
+import { and, eq, inArray, desc } from 'drizzle-orm';
 import { createGroupInput, joinGroupInput } from '@stay-in-touch/shared/validators';
-import { groups, groupMembers, cycles, newsletters, users } from '@stay-in-touch/shared/schema';
+import { groups, groupMembers, cycles, newsletters, users, answers } from '@stay-in-touch/shared/schema';
 import type { GroupMemberView } from '@stay-in-touch/shared';
 import { requireAuth } from '../middleware/auth';
 import { assertGroupMember } from '../lib/authz';
@@ -70,12 +70,36 @@ groupsRoute.get('/', async (c) => {
     membersByGroupId.get(row.groupId)!.push({ id: row.id, name: row.name, role: row.role });
   }
 
+  // Whether the caller has answered anything yet in each group's current
+  // cycle — the home screen uses this to distinguish "still needs
+  // answering" from "already filled out, waiting on the newsletter" rather
+  // than just going by the cycle's status (which only flips once *someone*
+  // sends it, not once *this* member has answered).
+  const currentCycleIds = allCycles
+    .filter((c) => cycleByGroupId.get(c.groupId)?.id === c.id)
+    .map((c) => c.id);
+  const answeredCycleIds =
+    currentCycleIds.length === 0
+      ? new Set<string>()
+      : new Set(
+          (
+            await db
+              .selectDistinct({ cycleId: answers.cycleId })
+              .from(answers)
+              .where(and(eq(answers.userId, userId), inArray(answers.cycleId, currentCycleIds)))
+          ).map((row) => row.cycleId),
+        );
+
   return c.json({
-    groups: myGroups.map((group) => ({
-      ...group,
-      currentCycle: cycleByGroupId.get(group.id) ?? null,
-      members: membersByGroupId.get(group.id) ?? [],
-    })),
+    groups: myGroups.map((group) => {
+      const currentCycle = cycleByGroupId.get(group.id) ?? null;
+      return {
+        ...group,
+        currentCycle,
+        members: membersByGroupId.get(group.id) ?? [],
+        hasAnswered: currentCycle ? answeredCycleIds.has(currentCycle.id) : false,
+      };
+    }),
   });
 });
 

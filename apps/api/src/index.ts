@@ -7,6 +7,7 @@ import { cyclesRoute } from './routes/cycles';
 import { groupsRoute } from './routes/groups';
 import { mediaRoute } from './routes/media';
 import { newslettersRoute } from './routes/newsletters';
+import { webhooksRoute } from './routes/webhooks';
 import type { Bindings, Variables } from './types';
 
 export const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -30,6 +31,7 @@ app.route('/groups', groupsRoute);
 app.route('/cycles', cyclesRoute);
 app.route('/media', mediaRoute);
 app.route('/newsletters', newslettersRoute);
+app.route('/webhooks', webhooksRoute);
 
 export default {
   fetch: app.fetch,

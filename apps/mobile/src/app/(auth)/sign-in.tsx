@@ -8,12 +8,19 @@ import { GoogleIcon } from '@/components/google-icon';
 
 const PLACEHOLDER = '#7C9188';
 
+// Every step this screen can be on. 'password' is the normal sign-in/
+// sign-up form; 'verify' is sign-up's post-password email-code step;
+// 'forgot-*' is the whole forgotten-password sub-flow, kept on this same
+// screen rather than a separate route since it shares the email/password
+// fields and the finalize() plumbing.
+type Step = 'password' | 'verify' | 'forgot-request' | 'forgot-verify' | 'forgot-reset';
+
 // Shared by every finalize() call below (SSO, password sign-in, password
-// sign-up) — converts a complete attempt into the active session and lands
-// on wherever the user was headed. `decorateUrl` may return an external
-// https:// URL (Safari ITP cookie refresh); on native there's no window to
-// hand that to, so it's a web-only branch, same as the join-link URL
-// elsewhere in this app.
+// sign-up, password reset) — converts a complete attempt into the active
+// session and lands on wherever the user was headed. `decorateUrl` may
+// return an external https:// URL (Safari ITP cookie refresh); on native
+// there's no window to hand that to, so it's a web-only branch, same as the
+// join-link URL elsewhere in this app.
 function navigateAfterAuth(
   returnTo: string | undefined,
   router: ReturnType<typeof useRouter>,
@@ -45,21 +52,20 @@ export default function SignInScreen() {
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  // Signup is two steps: fill in the form, then enter the code emailed to
-  // verify the address. Sign-in never needs this (no second factor is
-  // configured on this Clerk instance).
-  const [step, setStep] = useState<'form' | 'verify'>('form');
+  const [step, setStep] = useState<Step>('password');
   const [emailAddress, setEmailAddress] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const switchMode = useCallback((next: 'signin' | 'signup') => {
     setMode(next);
-    setStep('form');
+    setStep('password');
     setPassword('');
     setConfirmPassword('');
     setCode('');
@@ -178,10 +184,104 @@ export default function SignInScreen() {
 
   const onBackFromVerify = useCallback(async () => {
     await signUp.reset();
-    setStep('form');
+    setStep('password');
     setCode('');
     setErrorMessage(null);
   }, [signUp]);
+
+  // --- Forgotten password ---
+  // resetPasswordEmailCode.sendCode() takes no arguments — it sends to
+  // "the first email address on the account", which means the sign-in
+  // needs an identifier set first. signIn.create({ identifier }) does just
+  // that without attempting any factor yet (no password/strategy passed).
+  const onForgotRequestPress = useCallback(async () => {
+    if (!emailAddress.trim()) {
+      setErrorMessage('Enter your email address.');
+      return;
+    }
+    setSubmitting(true);
+    setErrorMessage(null);
+    try {
+      const { error: createError } = await signIn.create({ identifier: emailAddress.trim() });
+      if (createError) {
+        setErrorMessage(createError.longMessage ?? createError.message);
+        return;
+      }
+      const { error } = await signIn.resetPasswordEmailCode.sendCode();
+      if (error) {
+        setErrorMessage(error.longMessage ?? error.message);
+        return;
+      }
+      setStep('forgot-verify');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [signIn, emailAddress]);
+
+  const onForgotVerifyPress = useCallback(async () => {
+    if (!code.trim()) {
+      setErrorMessage('Enter the code from your email.');
+      return;
+    }
+    setSubmitting(true);
+    setErrorMessage(null);
+    try {
+      const { error } = await signIn.resetPasswordEmailCode.verifyCode({ code: code.trim() });
+      if (error) {
+        setErrorMessage(error.longMessage ?? error.message);
+        return;
+      }
+      if (signIn.status === 'needs_new_password') {
+        setStep('forgot-reset');
+      } else {
+        setErrorMessage('Verification didn’t complete — please try again.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [signIn, code]);
+
+  const onForgotResendCode = useCallback(async () => {
+    setErrorMessage(null);
+    const { error } = await signIn.resetPasswordEmailCode.sendCode();
+    if (error) setErrorMessage(error.longMessage ?? error.message);
+  }, [signIn]);
+
+  const onForgotResetPress = useCallback(async () => {
+    if (!newPassword) {
+      setErrorMessage('Enter a new password.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setErrorMessage('Passwords don’t match — check both fields.');
+      return;
+    }
+    setSubmitting(true);
+    setErrorMessage(null);
+    try {
+      const { error } = await signIn.resetPasswordEmailCode.submitPassword({ password: newPassword });
+      if (error) {
+        setErrorMessage(error.longMessage ?? error.message);
+        return;
+      }
+      if (signIn.status === 'complete') {
+        await signIn.finalize({ navigate: (params) => navigateAfterAuth(returnTo, router, params) });
+      } else {
+        setErrorMessage('Could not reset your password — please try again.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }, [signIn, newPassword, confirmNewPassword, returnTo, router]);
+
+  const onBackFromForgot = useCallback(async () => {
+    await signIn.reset();
+    setStep('password');
+    setCode('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setErrorMessage(null);
+  }, [signIn]);
 
   const anyLoading = googleLoading || submitting;
 
@@ -202,7 +302,7 @@ export default function SignInScreen() {
             One email a month, packed with everything your friends have been up to.
           </Text>
 
-          {step === 'verify' ? (
+          {step === 'verify' && (
             <View className="mt-4 w-full gap-3">
               <Text className="text-center font-mono text-sm text-charcoal/70">
                 We sent a code to{'\n'}
@@ -237,25 +337,103 @@ export default function SignInScreen() {
                 </Pressable>
               </View>
             </View>
-          ) : (
-            <>
-              <View className="mt-3 w-full flex-row rounded-full border border-paper-line bg-sand p-1">
-                <Pressable
-                  onPress={() => switchMode('signin')}
-                  className={`flex-1 items-center rounded-full py-2 ${mode === 'signin' ? 'bg-white shadow-sm shadow-black/5' : ''}`}>
-                  <Text className={`font-mono-bold text-sm ${mode === 'signin' ? 'text-charcoal' : 'text-charcoal/50'}`}>
-                    Sign in
-                  </Text>
+          )}
+
+          {step === 'forgot-request' && (
+            <View className="mt-4 w-full gap-3">
+              <Text className="text-center font-mono text-sm text-charcoal/70">
+                Enter your email and we’ll send you a reset code.
+              </Text>
+              <TextInput
+                autoFocus
+                value={emailAddress}
+                onChangeText={setEmailAddress}
+                placeholder="Email address"
+                placeholderTextColor={PLACEHOLDER}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                autoComplete="username"
+                className="rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
+              />
+              <Pressable
+                disabled={anyLoading}
+                onPress={onForgotRequestPress}
+                className="items-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-60">
+                {submitting ? <ActivityIndicator color="#fff" /> : <Text className="font-mono-bold text-white">Send reset code</Text>}
+              </Pressable>
+              <Pressable onPress={onBackFromForgot} disabled={anyLoading} className="self-center">
+                <Text className="font-mono text-xs text-charcoal/60">‹ Back to sign in</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {step === 'forgot-verify' && (
+            <View className="mt-4 w-full gap-3">
+              <Text className="text-center font-mono text-sm text-charcoal/70">
+                We sent a code to{'\n'}
+                <Text className="font-mono-bold text-charcoal">{emailAddress.trim()}</Text>
+              </Text>
+              <TextInput
+                autoFocus
+                value={code}
+                onChangeText={setCode}
+                placeholder="Verification code"
+                placeholderTextColor={PLACEHOLDER}
+                keyboardType="number-pad"
+                autoComplete="one-time-code"
+                className="rounded-xl border border-sand-line bg-sand px-4 py-3 text-center font-mono text-lg tracking-widest text-charcoal"
+              />
+              <Pressable
+                disabled={anyLoading}
+                onPress={onForgotVerifyPress}
+                className="items-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-60">
+                {submitting ? <ActivityIndicator color="#fff" /> : <Text className="font-mono-bold text-white">Verify code</Text>}
+              </Pressable>
+              <View className="flex-row justify-center gap-4">
+                <Pressable onPress={onBackFromForgot} disabled={anyLoading}>
+                  <Text className="font-mono text-xs text-charcoal/60">‹ Back</Text>
                 </Pressable>
-                <Pressable
-                  onPress={() => switchMode('signup')}
-                  className={`flex-1 items-center rounded-full py-2 ${mode === 'signup' ? 'bg-white shadow-sm shadow-black/5' : ''}`}>
-                  <Text className={`font-mono-bold text-sm ${mode === 'signup' ? 'text-charcoal' : 'text-charcoal/50'}`}>
-                    Create account
-                  </Text>
+                <Pressable onPress={onForgotResendCode} disabled={anyLoading}>
+                  <Text className="font-mono text-xs text-primary">Resend code</Text>
                 </Pressable>
               </View>
+            </View>
+          )}
 
+          {step === 'forgot-reset' && (
+            <View className="mt-4 w-full gap-3">
+              <Text className="text-center font-mono text-sm text-charcoal/70">Choose a new password.</Text>
+              <TextInput
+                autoFocus
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="New password"
+                placeholderTextColor={PLACEHOLDER}
+                secureTextEntry
+                autoComplete="new-password"
+                className="rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
+              />
+              <TextInput
+                value={confirmNewPassword}
+                onChangeText={setConfirmNewPassword}
+                placeholder="Confirm new password"
+                placeholderTextColor={PLACEHOLDER}
+                secureTextEntry
+                autoComplete="new-password"
+                className="rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
+              />
+              <Pressable
+                disabled={anyLoading}
+                onPress={onForgotResetPress}
+                className="items-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-60">
+                {submitting ? <ActivityIndicator color="#fff" /> : <Text className="font-mono-bold text-white">Reset password</Text>}
+              </Pressable>
+            </View>
+          )}
+
+          {step === 'password' && (
+            <>
               <View className="w-full gap-2.5">
                 <TextInput
                   value={emailAddress}
@@ -265,7 +443,7 @@ export default function SignInScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="email-address"
-                  autoComplete="email"
+                  autoComplete="username"
                   className="rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
                 />
                 <TextInput
@@ -274,7 +452,7 @@ export default function SignInScreen() {
                   placeholder="Password"
                   placeholderTextColor={PLACEHOLDER}
                   secureTextEntry
-                  autoComplete={mode === 'signup' ? 'new-password' : 'password'}
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   className="rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
                 />
                 {mode === 'signup' && (
@@ -288,18 +466,59 @@ export default function SignInScreen() {
                     className="rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
                   />
                 )}
-                <Pressable
-                  disabled={anyLoading}
-                  onPress={mode === 'signin' ? onSignInPress : onSignUpPress}
-                  className="mt-1 items-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-60">
-                  {submitting ? (
-                    <ActivityIndicator color="#fff" />
+                {mode === 'signin' && (
+                  <Pressable
+                    className="self-end"
+                    disabled={anyLoading}
+                    onPress={() => {
+                      setStep('forgot-request');
+                      setErrorMessage(null);
+                    }}>
+                    <Text className="font-mono text-xs text-primary">Forgot password?</Text>
+                  </Pressable>
+                )}
+
+                <View className="mt-1 flex-row gap-3">
+                  {mode === 'signin' ? (
+                    <>
+                      <Pressable
+                        disabled={anyLoading}
+                        onPress={onSignInPress}
+                        className="flex-1 items-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-60">
+                        {submitting ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text className="font-mono-bold text-white">Sign in</Text>
+                        )}
+                      </Pressable>
+                      <Pressable
+                        disabled={anyLoading}
+                        onPress={() => switchMode('signup')}
+                        className="flex-1 items-center rounded-full border border-paper-line bg-white px-4 py-3 active:opacity-70 disabled:opacity-60">
+                        <Text className="font-mono-bold text-charcoal">Create account</Text>
+                      </Pressable>
+                    </>
                   ) : (
-                    <Text className="font-mono-bold text-white">
-                      {mode === 'signin' ? 'Sign in' : 'Create account'}
-                    </Text>
+                    <>
+                      <Pressable
+                        disabled={anyLoading}
+                        onPress={onSignUpPress}
+                        className="flex-1 items-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-60">
+                        {submitting ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text className="font-mono-bold text-white">Create account</Text>
+                        )}
+                      </Pressable>
+                      <Pressable
+                        disabled={anyLoading}
+                        onPress={() => switchMode('signin')}
+                        className="flex-1 items-center rounded-full border border-paper-line bg-white px-4 py-3 active:opacity-70 disabled:opacity-60">
+                        <Text className="font-mono-bold text-charcoal">Back to sign in</Text>
+                      </Pressable>
+                    </>
                   )}
-                </Pressable>
+                </View>
               </View>
 
               <View className="w-full flex-row items-center gap-3">

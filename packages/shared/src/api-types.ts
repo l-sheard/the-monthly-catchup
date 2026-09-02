@@ -16,6 +16,9 @@ export interface GroupSummary extends Pick<Group, 'id' | 'name' | 'inviteCode'> 
   // for why this isn't filtered to only 'open' cycles.
   currentCycle: Cycle | null;
   members: GroupMemberView[];
+  // Whether the caller has answered anything yet in currentCycle — false
+  // (not meaningful) when currentCycle is null.
+  hasAnswered: boolean;
 }
 
 export interface ListMyGroupsResponse {

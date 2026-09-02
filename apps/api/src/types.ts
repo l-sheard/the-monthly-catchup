@@ -7,6 +7,8 @@ export interface Bindings {
   /** HMAC secret for self-issued signed media URLs (see lib/media-signing.ts) — used to embed images/audio in emails, which can't send an Authorization header. */
   MEDIA_SIGNING_SECRET: string;
   API_BASE_URL: string;
+  /** Verifies the Svix signature on inbound Clerk webhooks (see routes/webhooks.ts) — from Clerk Dashboard → Webhooks → your endpoint. */
+  CLERK_WEBHOOK_SIGNING_SECRET: string;
 }
 
 import type { Db } from './db';

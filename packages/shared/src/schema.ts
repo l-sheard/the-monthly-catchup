@@ -35,9 +35,11 @@ export const groups = pgTable('groups', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   inviteCode: text('invite_code').notNull().unique(),
-  createdBy: uuid('created_by')
-    .notNull()
-    .references(() => users.id),
+  // Nullable, unlike every other FK to users.id — this is a pure
+  // attribution field (nothing reads it besides the insert that sets it),
+  // so a deleted user's groups survive with createdBy cleared rather than
+  // being cascade-deleted or blocking the deletion outright.
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

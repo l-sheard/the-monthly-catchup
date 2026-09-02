@@ -43,6 +43,13 @@
       "when": 1788343592257,
       "tag": "0005_familiar_captain_cross",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788360651318,
+      "tag": "0006_worthless_orphan",
+      "breakpoints": true
     }
   ]
 }

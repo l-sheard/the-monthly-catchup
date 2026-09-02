@@ -19,26 +19,57 @@ const CARD = 'rounded-2xl border border-paper-line bg-white shadow-sm shadow-bla
 // user needs since they're pasting it into this same app.
 const WEB_APP_URL = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : null;
 
-type Urgency = 'plenty' | 'soon' | 'today' | 'passed';
+type Urgency = 'plenty' | 'soon' | 'today';
 
 function daysUntil(deadlineAt: string) {
   return Math.ceil((new Date(deadlineAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
-function getUrgency(daysLeft: number): { urgency: Urgency; countdown: string } {
-  if (daysLeft < 0) return { urgency: 'passed', countdown: 'Deadline passed' };
-  if (daysLeft === 0) return { urgency: 'today', countdown: 'Due today!' };
-  if (daysLeft === 1) return { urgency: 'soon', countdown: '1 day left' };
-  if (daysLeft <= 3) return { urgency: 'soon', countdown: `${daysLeft} days left` };
-  return { urgency: 'plenty', countdown: `${daysLeft} days left` };
+function getUrgency(daysLeft: number): Urgency {
+  if (daysLeft <= 0) return 'today';
+  if (daysLeft <= 3) return 'soon';
+  return 'plenty';
 }
 
 const urgencyStyles: Record<Urgency, { dot: string; text: string }> = {
   plenty: { dot: 'bg-emerald-500', text: 'text-emerald-600' },
   soon: { dot: 'bg-amber-500', text: 'text-amber-600' },
   today: { dot: 'bg-red-500', text: 'text-red-600' },
-  passed: { dot: 'bg-neutral-400', text: 'text-neutral-500' },
 };
+const doneStyle = { dot: 'bg-emerald-500', text: 'text-emerald-600' };
+const waitingStyle = { dot: 'bg-neutral-400', text: 'text-neutral-500' };
+
+function plural(n: number, noun: string) {
+  return `${n} ${noun}${n === 1 ? '' : 's'}`;
+}
+
+// Mirrors OPEN_DAYS_BEFORE_MONTH_END / lastDayOfMonth in
+// apps/api/src/jobs/open-cycles.ts — keep in sync by hand. Used only for
+// the "next opens in N days" label when a group has no live cycle to show
+// a real deadline for (a brand-new group, or one whose most recent cycle
+// has already been sent and its window closed).
+const OPEN_DAYS_BEFORE_MONTH_END = 6;
+
+function daysUntilNextOpen(from: Date) {
+  const lastDayOfMonth = (year: number, month: number) => new Date(Date.UTC(year, month, 0)).getUTCDate();
+  let year = from.getUTCFullYear();
+  let month = from.getUTCMonth() + 1; // 1-indexed, matches the server's convention
+  let openDay = lastDayOfMonth(year, month) - OPEN_DAYS_BEFORE_MONTH_END;
+
+  if (from.getUTCDate() > openDay) {
+    // This month's window is over (or was never reached yet this run) —
+    // the next one is next month's.
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+    openDay = lastDayOfMonth(year, month) - OPEN_DAYS_BEFORE_MONTH_END;
+  }
+
+  const openDate = new Date(Date.UTC(year, month - 1, openDay));
+  return Math.ceil((openDate.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+}
 
 function GroupCard({ group }: { group: GroupSummary }) {
   const router = useRouter();
@@ -49,25 +80,25 @@ function GroupCard({ group }: { group: GroupSummary }) {
   // route). Tapping in always works as long as a cycle exists.
   const cycleId = cycle?.id;
 
-  let label: React.ReactNode = null;
-  let dot = 'bg-neutral-400';
-  if (cycle) {
-    const daysLeft = daysUntil(cycle.deadlineAt);
-    const { urgency, countdown } = getUrgency(daysLeft);
-    dot = urgencyStyles[urgency].dot;
-    const textClass = urgencyStyles[urgency].text;
-    label =
-      cycle.status === 'sent' && daysLeft >= 0 ? (
-        <Text className={`font-mono text-sm ${textClass}`}>
-          📬 Already sent once · {countdown} to add or change answers
-        </Text>
-      ) : cycle.status === 'sent' ? (
-        <Text className="font-mono text-sm text-charcoal/60">📬 Sent — tap to view</Text>
-      ) : (
-        <Text className={`font-mono text-sm ${textClass}`}>
-          This month's catch-up · {countdown} — tap to answer
-        </Text>
-      );
+  const daysLeft = cycle ? daysUntil(cycle.deadlineAt) : null;
+  // A cycle counts as "still open to answer" up to and including its
+  // deadline — status only flips to 'sent' once something (the deadline-day
+  // auto-send, or the manual preview trigger) actually sends it, which can
+  // happen right at the deadline or, via the manual trigger, before it.
+  const isAnswerable = cycle !== null && daysLeft !== null && daysLeft >= 0;
+
+  let label: string;
+  let style: { dot: string; text: string };
+  if (isAnswerable && group.hasAnswered) {
+    style = doneStyle;
+    label = daysLeft === 0 ? 'Already filled out · newsletter sends today' : `Already filled out · newsletter sends in ${plural(daysLeft!, 'day')}`;
+  } else if (isAnswerable) {
+    style = urgencyStyles[getUrgency(daysLeft!)];
+    label = daysLeft === 0 ? 'Due today — tap to answer' : `${plural(daysLeft!, 'day')} left to fill out this month's catch-up`;
+  } else {
+    const daysToOpen = daysUntilNextOpen(new Date());
+    style = waitingStyle;
+    label = daysToOpen <= 0 ? 'Opens today' : `Opens again in ${plural(daysToOpen, 'day')}`;
   }
 
   return (
@@ -95,19 +126,16 @@ function GroupCard({ group }: { group: GroupSummary }) {
         ))}
       </View>
 
-      {label ? (
-        <View className="flex-row items-center gap-2">
-          <View className={`h-2 w-2 rounded-full ${dot}`} />
-          {label}
-        </View>
-      ) : (
-        <Text className="font-mono text-sm text-charcoal/60">Next catch-up opens on the 1st 🗓️</Text>
-      )}
+      <View className="flex-row items-center gap-2">
+        <View className={`h-2 w-2 rounded-full ${style.dot}`} />
+        <Text className={`font-mono text-sm ${style.text}`}>{label}</Text>
+      </View>
     </Pressable>
   );
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { apiFetch } = useApiClient();
   const { signOut } = useClerk();
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
@@ -192,9 +220,14 @@ export default function HomeScreen() {
               Everyone's monthly catch-ups, in one place.
             </Text>
           </View>
-          <Pressable onPress={() => signOut()} className="rounded-lg px-3 py-2 active:opacity-60">
-            <Text className="font-mono text-sm text-charcoal/60">Sign out</Text>
-          </Pressable>
+          <View className="items-end gap-1">
+            <Pressable onPress={() => router.push('/account')} className="rounded-lg px-3 py-2 active:opacity-60">
+              <Text className="font-mono text-sm text-charcoal/60">Account</Text>
+            </Pressable>
+            <Pressable onPress={() => signOut()} className="rounded-lg px-3 py-2 active:opacity-60">
+              <Text className="font-mono text-sm text-charcoal/60">Sign out</Text>
+            </Pressable>
+          </View>
         </View>
 
         {error && (
