@@ -33,6 +33,21 @@ export interface GroupMemberView {
   role: 'owner' | 'member';
 }
 
+export interface NewsletterSummary {
+  id: string;
+  month: number;
+  year: number;
+  sentAt: string | null;
+  // Pre-signed (see lib/media-signing.ts) so the client can just open it —
+  // a plain Linking.openURL/new-tab navigation can't carry an Authorization
+  // header, same reasoning as embedding media in the email itself.
+  viewUrl: string;
+}
+
+export interface ListNewslettersResponse {
+  newsletters: NewsletterSummary[];
+}
+
 export interface MediaView {
   id: string;
   kind: 'photo' | 'audio';

@@ -3,6 +3,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -11,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { CycleDetailResponse } from '@stay-in-touch/shared';
+import type { CycleDetailResponse, ListNewslettersResponse, NewsletterSummary } from '@stay-in-touch/shared';
 
 import { useApiClient } from '@/lib/api';
 import { MediaAttachment } from '@/components/media-attachment';
@@ -42,6 +43,7 @@ export default function CycleDetailScreen() {
   const [addingSuggestion, setAddingSuggestion] = useState(false);
   const [sendResult, setSendResult] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [newsletters, setNewsletters] = useState<NewsletterSummary[] | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -61,6 +63,28 @@ export default function CycleDetailScreen() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const groupId = data?.cycle.groupId;
+  const loadNewsletters = useCallback(async () => {
+    if (!groupId) return;
+    try {
+      const res = await apiFetch<ListNewslettersResponse>(`/groups/${groupId}/newsletters`);
+      setNewsletters(res.newsletters);
+    } catch {
+      // Best-effort — the rest of the screen is fine without the archive.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId]);
+
+  // groupId is only known once `load()` above resolves, so this can't be
+  // folded into the mount effect — but it only ever transitions once
+  // (undefined -> the real id), even though load() itself re-runs after
+  // every save/upload, so this doesn't refetch the archive on every one of
+  // those.
+  useEffect(() => {
+    loadNewsletters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId]);
 
   if (!isLoaded) return null;
   if (!isSignedIn) return <Redirect href="/(auth)/sign-in" />;
@@ -120,6 +144,7 @@ export default function CycleDetailScreen() {
       }
       setSendResult(parts.join(' — '));
       await load();
+      await loadNewsletters();
     } catch (err) {
       setSendResult(err instanceof Error ? err.message : 'Failed to send');
     } finally {
@@ -270,6 +295,26 @@ export default function CycleDetailScreen() {
                 </Text>
               </Pressable>
               {sendResult && <Text className="font-mono text-sm text-charcoal/70">{sendResult}</Text>}
+
+              {newsletters && newsletters.length > 0 && (
+                <View className="mt-2 gap-2 border-t border-paper-line pt-3">
+                  <Text className="font-mono-bold text-sm text-charcoal">📬 Past newsletters</Text>
+                  {newsletters.map((n) => (
+                    <Pressable
+                      key={n.id}
+                      onPress={() => Linking.openURL(n.viewUrl)}
+                      className="flex-row items-center justify-between rounded-xl bg-sand px-3 py-2 active:opacity-70">
+                      <Text className="font-mono text-sm text-charcoal">
+                        {new Date(n.year, n.month - 1, 1).toLocaleString('en-US', {
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                      <Text className="font-mono-bold text-xs text-primary">View →</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </View>
           </View>
         )}

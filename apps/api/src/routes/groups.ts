@@ -2,9 +2,10 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { eq, inArray, desc } from 'drizzle-orm';
 import { createGroupInput, joinGroupInput } from '@stay-in-touch/shared/validators';
-import { groups, groupMembers, cycles } from '@stay-in-touch/shared/schema';
+import { groups, groupMembers, cycles, newsletters } from '@stay-in-touch/shared/schema';
 import { requireAuth } from '../middleware/auth';
 import { assertGroupMember } from '../lib/authz';
+import { signMediaUrl } from '../lib/media-signing';
 import type { Bindings, Variables } from '../types';
 
 export const groupsRoute = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -85,6 +86,44 @@ groupsRoute.post('/join', zValidator('json', joinGroupInput), async (c) => {
     .onConflictDoNothing();
 
   return c.json({ group });
+});
+
+// Ordered by date (newest first) — each entry carries a pre-signed link to
+// the compiled HTML, since viewing it means leaving the app's authenticated
+// fetch context (Linking.openURL / a new browser tab), same as media
+// embedded in the email itself.
+groupsRoute.get('/:id/newsletters', async (c) => {
+  const db = c.get('db');
+  const userId = c.get('userId');
+  const groupId = c.req.param('id');
+
+  try {
+    await assertGroupMember(db, groupId, userId);
+  } catch {
+    return c.json({ error: 'Not a member of this group' }, 403);
+  }
+
+  const rows = await db
+    .select({ id: newsletters.id, month: cycles.month, year: cycles.year, sentAt: newsletters.sentAt })
+    .from(newsletters)
+    .innerJoin(cycles, eq(cycles.id, newsletters.cycleId))
+    .where(eq(cycles.groupId, groupId))
+    .orderBy(desc(cycles.year), desc(cycles.month));
+
+  const items = await Promise.all(
+    rows.map(async (row) => {
+      const { expires, sig } = await signMediaUrl(c.env.MEDIA_SIGNING_SECRET, row.id);
+      return {
+        id: row.id,
+        month: row.month,
+        year: row.year,
+        sentAt: row.sentAt ? row.sentAt.toISOString() : null,
+        viewUrl: `${c.env.API_BASE_URL}/newsletters/${row.id}/public?expires=${expires}&sig=${sig}`,
+      };
+    }),
+  );
+
+  return c.json({ newsletters: items });
 });
 
 groupsRoute.get('/:id', async (c) => {
