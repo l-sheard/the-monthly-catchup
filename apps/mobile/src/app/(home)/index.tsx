@@ -1,6 +1,6 @@
 import { useClerk } from '@clerk/expo';
 import * as Clipboard from 'expo-clipboard';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -138,6 +138,11 @@ export default function HomeScreen() {
   const router = useRouter();
   const { apiFetch } = useApiClient();
   const { signOut } = useClerk();
+  // Set by the top bar (app-tabs.web.tsx) when Create/Join group is tapped
+  // there — that's a sibling component with no other channel into this
+  // screen's local `mode` state, so it goes through the route's own params
+  // instead, same pattern sign-in's `returnTo` already uses.
+  const { action } = useLocalSearchParams<{ action?: string }>();
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'list' | 'create' | 'join' | 'share'>('list');
@@ -166,6 +171,14 @@ export default function HomeScreen() {
     loadGroups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (action === 'create' || action === 'join') {
+      setMode(action);
+      router.setParams({ action: undefined }); // consume it so it doesn't re-fire (e.g. on back/forward)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [action]);
 
   const onSubmit = useCallback(async () => {
     if (!inputValue.trim()) return;
@@ -220,14 +233,17 @@ export default function HomeScreen() {
               Everyone's monthly catch-ups, in one place.
             </Text>
           </View>
-          <View className="items-end gap-1">
-            <Pressable onPress={() => router.push('/account')} className="rounded-lg px-3 py-2 active:opacity-60">
-              <Text className="font-mono text-sm text-charcoal/60">Account</Text>
-            </Pressable>
-            <Pressable onPress={() => signOut()} className="rounded-lg px-3 py-2 active:opacity-60">
-              <Text className="font-mono text-sm text-charcoal/60">Sign out</Text>
-            </Pressable>
-          </View>
+          {/* Web has these in the top bar (app-tabs.web.tsx) instead. */}
+          {Platform.OS !== 'web' && (
+            <View className="items-end gap-1">
+              <Pressable onPress={() => router.push('/account')} className="rounded-lg px-3 py-2 active:opacity-60">
+                <Text className="font-mono text-sm text-charcoal/60">Account</Text>
+              </Pressable>
+              <Pressable onPress={() => signOut()} className="rounded-lg px-3 py-2 active:opacity-60">
+                <Text className="font-mono text-sm text-charcoal/60">Sign out</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {error && (
@@ -253,12 +269,13 @@ export default function HomeScreen() {
 
           {groups?.map((group) => <GroupCard key={group.id} group={group} />)}
 
-          {mode === 'list' && (
+          {/* Web has these in the top bar (app-tabs.web.tsx) instead. */}
+          {Platform.OS !== 'web' && mode === 'list' && (
             <View className="flex-row gap-3">
               <Pressable
                 onPress={() => setMode('create')}
                 className="flex-1 items-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85">
-                <Text className="font-mono-bold text-white">✨ Create group</Text>
+                <Text className="font-mono-bold text-white">+ Create group</Text>
               </Pressable>
               <Pressable
                 onPress={() => setMode('join')}

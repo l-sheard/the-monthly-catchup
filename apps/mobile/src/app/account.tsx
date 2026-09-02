@@ -1,4 +1,4 @@
-import { useAuth, useUser } from '@clerk/expo';
+import { useAuth, useClerk, useUser } from '@clerk/expo';
 import { Redirect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -13,6 +13,7 @@ const PLACEHOLDER = '#7C9188';
 export default function AccountScreen() {
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
+  const { signOut } = useClerk();
   const router = useRouter();
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -80,11 +81,16 @@ export default function AccountScreen() {
     <SafeAreaView className="flex-1 bg-paper">
       <ScrollView contentContainerClassName="items-center px-6 py-8 gap-4" className="flex-1">
         <View className="w-full max-w-xl">
-          <Pressable
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-            className="mb-3 self-start active:opacity-60">
-            <Text className="font-mono text-sm text-charcoal/60">← Back</Text>
-          </Pressable>
+          <View className="flex-row items-start justify-between">
+            <Pressable
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+              className="mb-3 self-start active:opacity-60">
+              <Text className="font-mono text-sm text-charcoal/60">← Back</Text>
+            </Pressable>
+            <Pressable onPress={() => signOut()} className="rounded-lg px-2 py-1 active:opacity-60">
+              <Text className="font-mono text-sm text-charcoal/60">Sign out</Text>
+            </Pressable>
+          </View>
           <Text className="font-mono-bold text-3xl tracking-tight text-charcoal">Account</Text>
           {user?.primaryEmailAddress && (
             <Text className="mt-1 font-mono text-sm text-charcoal/60">

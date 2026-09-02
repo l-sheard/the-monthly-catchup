@@ -69,6 +69,8 @@ export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 
 // The web header (app-tabs.web.tsx) floats over the page as an absolutely
 // positioned bar, so nothing pushes page content down for it automatically
-// — screens need to reserve this much top clearance themselves.
-export const WebTopBarInset = 68;
+// — screens need to reserve this much top clearance themselves. Grew from
+// 68 once the bar picked up the Create/Join group + Account + Sign out
+// actions alongside the wordmark.
+export const WebTopBarInset = 76;
 export const MaxContentWidth = 800;
