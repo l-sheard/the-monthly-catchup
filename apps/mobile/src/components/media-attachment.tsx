@@ -10,11 +10,13 @@ import {
   useAudioRecorderState,
 } from 'expo-audio';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, Text, TextInput, View } from 'react-native';
 
 import { API_URL, useApiClient } from '@/lib/api';
 import { MEDIA_LIMITS } from '@stay-in-touch/shared';
 import type { MediaView } from '@stay-in-touch/shared';
+
+const PLACEHOLDER = '#7C9188';
 
 interface MediaAttachmentProps {
   cycleId: string;
@@ -138,13 +140,15 @@ function PhotoAttachment({
   return (
     <View className="gap-2">
       {existingMedia.length > 0 && (
-        <View className="flex-row flex-wrap gap-2">
+        <View className="flex-row flex-wrap gap-3">
           {existingMedia.map((item) => (
             <PhotoThumbnail
               key={item.id}
               mediaId={item.id}
+              caption={item.caption}
               removing={removingId === item.id}
               onRemove={() => remove(item.id)}
+              onCaptionSaved={onChange}
             />
           ))}
         </View>
@@ -170,38 +174,80 @@ function PhotoAttachment({
 
 function PhotoThumbnail({
   mediaId,
+  caption,
   removing,
   onRemove,
+  onCaptionSaved,
 }: {
   mediaId: string;
+  caption: string | null;
   removing: boolean;
   onRemove: () => void;
+  onCaptionSaved: () => void;
 }) {
   const { uri, error } = useMediaBlobUri(mediaId);
+  const { apiFetch } = useApiClient();
+  const [captionText, setCaptionText] = useState(caption ?? '');
+  const [savingCaption, setSavingCaption] = useState(false);
+
+  const saveCaption = useCallback(async () => {
+    if (captionText === (caption ?? '')) return; // unchanged, nothing to save
+    setSavingCaption(true);
+    try {
+      await apiFetch(`/media/${mediaId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ caption: captionText }),
+      });
+      onCaptionSaved();
+    } catch {
+      // Best-effort — leave the typed text in place either way, rather than
+      // reverting what the person just wrote out from under them.
+    } finally {
+      setSavingCaption(false);
+    }
+  }, [apiFetch, mediaId, captionText, caption, onCaptionSaved]);
 
   return (
-    <View className="relative h-24 w-24">
-      {uri ? (
-        <Image source={{ uri }} className="h-24 w-24 rounded-xl" resizeMode="cover" />
-      ) : (
-        <View className="h-24 w-24 items-center justify-center rounded-xl bg-sand">
-          {error ? (
-            <Text className="font-mono text-xs text-red-500">Failed</Text>
-          ) : (
-            <ActivityIndicator size="small" color="#F2776A" />
-          )}
-        </View>
-      )}
-      <Pressable
-        disabled={removing}
-        onPress={onRemove}
-        className="absolute -right-2 -top-2 h-6 w-6 items-center justify-center rounded-full bg-charcoal shadow-sm shadow-black/20 disabled:opacity-50">
-        {removing ? (
-          <ActivityIndicator size="small" color="#fff" />
+    <View className="w-32 gap-1.5">
+      <View className="relative h-32 w-32">
+        {uri ? (
+          <Image source={{ uri }} className="h-32 w-32 rounded-xl" resizeMode="cover" />
         ) : (
-          <Text className="font-mono-bold text-xs text-white">✕</Text>
+          <View className="h-32 w-32 items-center justify-center rounded-xl bg-sand">
+            {error ? (
+              <Text className="font-mono text-xs text-red-500">Failed</Text>
+            ) : (
+              <ActivityIndicator size="small" color="#F2776A" />
+            )}
+          </View>
         )}
-      </Pressable>
+        <Pressable
+          disabled={removing}
+          onPress={onRemove}
+          className="absolute -right-2 -top-2 h-6 w-6 items-center justify-center rounded-full bg-charcoal shadow-sm shadow-black/20 disabled:opacity-50">
+          {removing ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text className="font-mono-bold text-xs text-white">✕</Text>
+          )}
+        </Pressable>
+      </View>
+      {/* Only shown once the photo exists — a caption belongs to this one
+          photo, not the question, so there's nothing to attach it to
+          beforehand. Saves on blur; no separate save button. */}
+      <View className="relative">
+        <TextInput
+          value={captionText}
+          onChangeText={setCaptionText}
+          onBlur={saveCaption}
+          placeholder="Caption…"
+          placeholderTextColor={PLACEHOLDER}
+          className="rounded-lg border border-sand-line bg-sand px-2 py-1.5 pr-5 font-mono text-xs text-charcoal"
+        />
+        {savingCaption && (
+          <ActivityIndicator size="small" color="#F2776A" style={{ position: 'absolute', right: 4, top: 6 }} />
+        )}
+      </View>
     </View>
   );
 }

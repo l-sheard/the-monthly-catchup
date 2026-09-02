@@ -11,6 +11,7 @@ module.exports = {
         primary: { DEFAULT: '#F2776A', dark: '#F58F84' },
         charcoal: '#1B3A33',
         sand: '#EFEFEC',
+        'sand-line': '#C9C9C2',
         umber: '#16231F',
         paper: '#F9F3E7',
         'paper-line': '#EBE0C6',

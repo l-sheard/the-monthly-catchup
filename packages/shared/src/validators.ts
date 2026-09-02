@@ -43,6 +43,10 @@ export const uploadMediaInput = z.discriminatedUnion('kind', [
   }),
 ]);
 
+export const updateMediaCaptionInput = z.object({
+  caption: z.string().max(280),
+});
+
 export const submitMeetupSuggestionInput = z.object({
   cycleId: z.uuid(),
   bodyText: z.string().min(1).max(500),
@@ -53,3 +57,4 @@ export type JoinGroupInput = z.infer<typeof joinGroupInput>;
 export type SubmitAnswerInput = z.infer<typeof submitAnswerInput>;
 export type UploadMediaInput = z.infer<typeof uploadMediaInput>;
 export type SubmitMeetupSuggestionInput = z.infer<typeof submitMeetupSuggestionInput>;
+export type UpdateMediaCaptionInput = z.infer<typeof updateMediaCaptionInput>;

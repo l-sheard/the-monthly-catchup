@@ -109,6 +109,10 @@ export const media = pgTable('media', {
   storagePath: text('storage_path').notNull(),
   sizeBytes: integer('size_bytes').notNull(),
   durationSeconds: integer('duration_seconds'),
+  // Per-photo caption, set after upload (not at upload time) — a photo
+  // question can carry several photos, each with its own caption, unlike
+  // the one shared bodyText an ordinary question's answer gets.
+  caption: text('caption'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

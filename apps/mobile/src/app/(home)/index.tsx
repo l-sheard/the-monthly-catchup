@@ -206,7 +206,7 @@ export default function HomeScreen() {
                 placeholder={mode === 'create' ? 'e.g. The Book Club' : 'Paste it here'}
                 placeholderTextColor="#7C9188"
                 autoCapitalize={mode === 'create' ? 'words' : 'none'}
-                className="rounded-xl border border-paper-line bg-sand px-4 py-3 font-mono text-charcoal"
+                className="rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
               />
               <View className="flex-row gap-3">
                 <Pressable

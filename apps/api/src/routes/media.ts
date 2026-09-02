@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
+import { zValidator } from '@hono/zod-validator';
 import { and, eq } from 'drizzle-orm';
 import { answers, cycles, media as mediaTable } from '@stay-in-touch/shared/schema';
-import { MEDIA_LIMITS } from '@stay-in-touch/shared/validators';
+import { MEDIA_LIMITS, updateMediaCaptionInput } from '@stay-in-touch/shared/validators';
 import { requireAuth } from '../middleware/auth';
 import { createDb } from '../db';
 import { assertGroupMember } from '../lib/authz';
@@ -130,6 +131,45 @@ mediaRoute.get('/:id', requireAuth, async (c) => {
       'Cache-Control': 'private, max-age=3600',
     },
   });
+});
+
+// Sets a photo's caption after the fact — captions are per-photo, not part
+// of the upload payload, since the UI only shows the caption box once a
+// thumbnail exists to attach it to. Same ownership check as delete: only
+// the person who uploaded it can caption it.
+mediaRoute.patch('/:id', requireAuth, zValidator('json', updateMediaCaptionInput), async (c) => {
+  const db = c.get('db');
+  const userId = c.get('userId');
+  const mediaId = c.req.param('id');
+  const { caption } = c.req.valid('json');
+
+  const [row] = await db
+    .select({ groupId: cycles.groupId, ownerId: answers.userId })
+    .from(mediaTable)
+    .innerJoin(answers, eq(mediaTable.answerId, answers.id))
+    .innerJoin(cycles, eq(answers.cycleId, cycles.id))
+    .where(eq(mediaTable.id, mediaId))
+    .limit(1);
+
+  if (!row) return c.json({ error: 'Not found' }, 404);
+
+  try {
+    await assertGroupMember(db, row.groupId, userId);
+  } catch {
+    return c.json({ error: 'Not a member of this group' }, 403);
+  }
+
+  if (row.ownerId !== userId) {
+    return c.json({ error: 'You can only caption your own media' }, 403);
+  }
+
+  const [updated] = await db
+    .update(mediaTable)
+    .set({ caption: caption.trim() || null })
+    .where(eq(mediaTable.id, mediaId))
+    .returning();
+
+  return c.json({ media: updated });
 });
 
 // Lets a member remove their own attachment (e.g. to re-record a voice note

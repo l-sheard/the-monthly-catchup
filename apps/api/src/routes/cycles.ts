@@ -59,7 +59,13 @@ cyclesRoute.get('/:id', async (c) => {
   const myMedia: Record<string, MediaView[]> = {};
   if (myAnswerRows.length > 0) {
     const mediaRows = await db
-      .select({ id: media.id, kind: media.kind, durationSeconds: media.durationSeconds, answerId: media.answerId })
+      .select({
+        id: media.id,
+        kind: media.kind,
+        durationSeconds: media.durationSeconds,
+        caption: media.caption,
+        answerId: media.answerId,
+      })
       .from(media)
       .where(
         inArray(
@@ -70,7 +76,12 @@ cyclesRoute.get('/:id', async (c) => {
     for (const row of mediaRows) {
       const questionId = questionIdByAnswerId.get(row.answerId);
       if (!questionId) continue;
-      (myMedia[questionId] ??= []).push({ id: row.id, kind: row.kind, durationSeconds: row.durationSeconds });
+      (myMedia[questionId] ??= []).push({
+        id: row.id,
+        kind: row.kind,
+        durationSeconds: row.durationSeconds,
+        caption: row.caption,
+      });
     }
   }
 

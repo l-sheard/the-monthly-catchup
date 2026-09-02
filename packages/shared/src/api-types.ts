@@ -31,6 +31,7 @@ export interface MediaView {
   id: string;
   kind: 'photo' | 'audio';
   durationSeconds: number | null;
+  caption: string | null;
 }
 
 export interface CycleDetailResponse {

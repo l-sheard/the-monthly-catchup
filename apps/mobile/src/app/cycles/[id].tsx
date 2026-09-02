@@ -3,6 +3,7 @@ import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -168,16 +169,21 @@ export default function CycleDetailScreen() {
                   <Text className="font-mono-bold text-sm text-charcoal">
                     {QUESTION_EMOJI[q.type] ?? '💬'} {q.promptText}
                   </Text>
-                  <TextInput
-                    multiline
-                    value={draftAnswers[q.id] ?? ''}
-                    onChangeText={(text) => setDraftAnswers((prev) => ({ ...prev, [q.id]: text }))}
-                    placeholder={
-                      q.type === 'photo' || q.type === 'voice' ? 'Caption (optional)…' : 'Your answer…'
-                    }
-                    placeholderTextColor={PLACEHOLDER}
-                    className="min-h-[64px] rounded-xl border border-paper-line bg-sand px-4 py-3 font-mono text-charcoal"
-                  />
+                  {/* Photo and voice questions have no shared question-level
+                      answer box: voice is just the recording, and a photo
+                      question's "caption" is per-photo (see
+                      MediaAttachment/PhotoThumbnail), not one field shared
+                      across every photo attached to the question. */}
+                  {q.type !== 'voice' && q.type !== 'photo' && (
+                    <TextInput
+                      multiline
+                      value={draftAnswers[q.id] ?? ''}
+                      onChangeText={(text) => setDraftAnswers((prev) => ({ ...prev, [q.id]: text }))}
+                      placeholder="Your answer…"
+                      placeholderTextColor={PLACEHOLDER}
+                      className="min-h-[64px] rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
+                    />
+                  )}
                   {(q.type === 'photo' || q.type === 'voice') && (
                     <MediaAttachment
                       cycleId={data.cycle.id}
@@ -199,35 +205,38 @@ export default function CycleDetailScreen() {
               </Pressable>
             </View>
 
-            <View className={`gap-3 p-5 ${CARD}`}>
-              <Text className="font-mono-bold text-charcoal">📅 Meetup suggestions</Text>
-              {data.meetupSuggestions.length === 0 && (
-                <Text className="font-mono text-sm text-charcoal/60">No suggestions yet — add one below.</Text>
-              )}
-              {data.meetupSuggestions.map((s) => (
-                <View key={s.id} className="rounded-xl bg-sand px-3 py-2">
-                  <Text className="font-mono text-sm text-charcoal">
-                    <Text className="font-mono-bold">{s.authorName}: </Text>
-                    {s.bodyText}
-                  </Text>
+            {/* Web-only hidden for now, per feedback — kept for native. */}
+            {Platform.OS !== 'web' && (
+              <View className={`gap-3 p-5 ${CARD}`}>
+                <Text className="font-mono-bold text-charcoal">📅 Meetup suggestions</Text>
+                {data.meetupSuggestions.length === 0 && (
+                  <Text className="font-mono text-sm text-charcoal/60">No suggestions yet — add one below.</Text>
+                )}
+                {data.meetupSuggestions.map((s) => (
+                  <View key={s.id} className="rounded-xl bg-sand px-3 py-2">
+                    <Text className="font-mono text-sm text-charcoal">
+                      <Text className="font-mono-bold">{s.authorName}: </Text>
+                      {s.bodyText}
+                    </Text>
+                  </View>
+                ))}
+                <View className="flex-row gap-2">
+                  <TextInput
+                    value={suggestionInput}
+                    onChangeText={setSuggestionInput}
+                    placeholder="e.g. Picnic in the park?"
+                    placeholderTextColor={PLACEHOLDER}
+                    className="flex-1 rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
+                  />
+                  <Pressable
+                    disabled={addingSuggestion}
+                    onPress={addSuggestion}
+                    className="items-center justify-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-50">
+                    <Text className="font-mono-bold text-white">Add</Text>
+                  </Pressable>
                 </View>
-              ))}
-              <View className="flex-row gap-2">
-                <TextInput
-                  value={suggestionInput}
-                  onChangeText={setSuggestionInput}
-                  placeholder="e.g. Picnic in the park?"
-                  placeholderTextColor={PLACEHOLDER}
-                  className="flex-1 rounded-xl border border-paper-line bg-sand px-4 py-3 font-mono text-charcoal"
-                />
-                <Pressable
-                  disabled={addingSuggestion}
-                  onPress={addSuggestion}
-                  className="items-center justify-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-50">
-                  <Text className="font-mono-bold text-white">Add</Text>
-                </Pressable>
               </View>
-            </View>
+            )}
 
             <View className={`gap-2 p-5 ${CARD}`}>
               <Text className="font-mono-bold text-charcoal">💌 Newsletter</Text>
