@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/expo';
 import { Redirect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CycleDetailResponse, ListNewslettersResponse, NewsletterSummary } from '@stay-in-touch/shared';
 
@@ -208,7 +208,11 @@ export default function CycleOverviewScreen() {
                   newsletters.map((n) => (
                     <Pressable
                       key={n.id}
-                      onPress={() => Linking.openURL(n.viewUrl)}
+                      onPress={() =>
+                        Platform.OS === 'web'
+                          ? router.push({ pathname: '/newsletters/[id]', params: { id: n.id, url: n.viewUrl } })
+                          : Linking.openURL(n.viewUrl)
+                      }
                       className="flex-row items-center justify-between rounded-xl bg-sand px-3 py-2 active:opacity-70">
                       <Text className="font-mono text-sm text-charcoal">
                         {new Date(n.year, n.month - 1, 1).toLocaleString('en-US', {
