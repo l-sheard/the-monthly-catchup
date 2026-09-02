@@ -12,13 +12,16 @@ const CARD = 'rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-bl
 
 type Urgency = 'plenty' | 'soon' | 'today' | 'passed';
 
-function getUrgency(deadlineAt: string): { urgency: Urgency; label: string } {
-  const daysLeft = Math.ceil((new Date(deadlineAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-  if (daysLeft < 0) return { urgency: 'passed', label: 'Deadline passed' };
-  if (daysLeft === 0) return { urgency: 'today', label: 'Due today!' };
-  if (daysLeft === 1) return { urgency: 'soon', label: '1 day left' };
-  if (daysLeft <= 3) return { urgency: 'soon', label: `${daysLeft} days left` };
-  return { urgency: 'plenty', label: `${daysLeft} days left` };
+function daysUntil(deadlineAt: string) {
+  return Math.ceil((new Date(deadlineAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
+
+function getUrgency(daysLeft: number): { urgency: Urgency; countdown: string } {
+  if (daysLeft < 0) return { urgency: 'passed', countdown: 'Deadline passed' };
+  if (daysLeft === 0) return { urgency: 'today', countdown: 'Due today!' };
+  if (daysLeft === 1) return { urgency: 'soon', countdown: '1 day left' };
+  if (daysLeft <= 3) return { urgency: 'soon', countdown: `${daysLeft} days left` };
+  return { urgency: 'plenty', countdown: `${daysLeft} days left` };
 }
 
 const urgencyStyles: Record<Urgency, { dot: string; text: string }> = {
@@ -30,8 +33,33 @@ const urgencyStyles: Record<Urgency, { dot: string; text: string }> = {
 
 function GroupCard({ group }: { group: GroupSummary }) {
   const router = useRouter();
-  const status = group.openCycle ? getUrgency(group.openCycle.deadlineAt) : null;
-  const cycleId = group.openCycle?.id;
+  const cycle = group.currentCycle;
+  // Deliberately not gated on cycle.status: the deadline is what actually
+  // determines whether you should still be able to get in and edit, not
+  // whether someone has already triggered a preview send (see the /groups
+  // route). Tapping in always works as long as a cycle exists.
+  const cycleId = cycle?.id;
+
+  let label: React.ReactNode = null;
+  let dot = 'bg-neutral-400';
+  if (cycle) {
+    const daysLeft = daysUntil(cycle.deadlineAt);
+    const { urgency, countdown } = getUrgency(daysLeft);
+    dot = urgencyStyles[urgency].dot;
+    const textClass = urgencyStyles[urgency].text;
+    label =
+      cycle.status === 'sent' && daysLeft >= 0 ? (
+        <Text className={`text-sm font-medium ${textClass}`}>
+          📬 Already sent once · {countdown} to add or change answers
+        </Text>
+      ) : cycle.status === 'sent' ? (
+        <Text className="text-sm font-medium text-charcoal/50">📬 Sent — tap to view</Text>
+      ) : (
+        <Text className={`text-sm font-medium ${textClass}`}>
+          This month's catch-up · {countdown} — tap to answer
+        </Text>
+      );
+  }
 
   return (
     <Pressable
@@ -44,12 +72,10 @@ function GroupCard({ group }: { group: GroupSummary }) {
           <Text className="text-base">👋</Text>
         </View>
       </View>
-      {status ? (
+      {label ? (
         <View className="flex-row items-center gap-2">
-          <View className={`h-2 w-2 rounded-full ${urgencyStyles[status.urgency].dot}`} />
-          <Text className={`text-sm font-medium ${urgencyStyles[status.urgency].text}`}>
-            This month's catch-up · {status.label} — tap to answer
-          </Text>
+          <View className={`h-2 w-2 rounded-full ${dot}`} />
+          {label}
         </View>
       ) : (
         <Text className="text-sm text-charcoal/50">Next catch-up opens on the 1st 🗓️</Text>

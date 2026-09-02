@@ -12,7 +12,9 @@ export type Cycle = Omit<typeof cycles.$inferSelect, 'opensAt' | 'deadlineAt'> &
 };
 
 export interface GroupSummary extends Pick<Group, 'id' | 'name' | 'inviteCode'> {
-  openCycle: Cycle | null;
+  // The group's newest cycle, whatever its status — see the /groups route
+  // for why this isn't filtered to only 'open' cycles.
+  currentCycle: Cycle | null;
 }
 
 export interface ListMyGroupsResponse {

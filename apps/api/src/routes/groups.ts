@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { eq, inArray, and } from 'drizzle-orm';
+import { eq, inArray, desc } from 'drizzle-orm';
 import { createGroupInput, joinGroupInput } from '@stay-in-touch/shared/validators';
 import { groups, groupMembers, cycles } from '@stay-in-touch/shared/schema';
 import { requireAuth } from '../middleware/auth';
@@ -25,23 +25,32 @@ groupsRoute.get('/', async (c) => {
     return c.json({ groups: [] });
   }
 
-  const openCycles = await db
+  // The newest cycle per group, regardless of status — not filtered to
+  // status === 'open'. Whether a member can still get in and edit is a
+  // function of the deadline, not this status flag: status only flips to
+  // 'sent' once someone (today: the manual "send newsletter now" test
+  // trigger; eventually: the deadline-day cron) actually sends it, and that
+  // can happen well before the real deadline while people are still meant
+  // to be able to answer/revise. Gating on status alone would lock everyone
+  // out the moment anyone previews the email.
+  const allCycles = await db
     .select()
     .from(cycles)
     .where(
-      and(
-        inArray(
-          cycles.groupId,
-          myGroups.map((g) => g.id),
-        ),
-        eq(cycles.status, 'open'),
+      inArray(
+        cycles.groupId,
+        myGroups.map((g) => g.id),
       ),
-    );
+    )
+    .orderBy(desc(cycles.year), desc(cycles.month));
 
-  const cycleByGroupId = new Map(openCycles.map((cycle) => [cycle.groupId, cycle]));
+  const cycleByGroupId = new Map<string, (typeof allCycles)[number]>();
+  for (const cycle of allCycles) {
+    if (!cycleByGroupId.has(cycle.groupId)) cycleByGroupId.set(cycle.groupId, cycle);
+  }
 
   return c.json({
-    groups: myGroups.map((group) => ({ ...group, openCycle: cycleByGroupId.get(group.id) ?? null })),
+    groups: myGroups.map((group) => ({ ...group, currentCycle: cycleByGroupId.get(group.id) ?? null })),
   });
 });
 
