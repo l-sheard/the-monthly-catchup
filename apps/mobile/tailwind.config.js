@@ -12,8 +12,8 @@ module.exports = {
         charcoal: '#1B3A33',
         sand: '#EFEFEC',
         umber: '#16231F',
-        paper: '#F3EAD3',
-        'paper-line': '#E0D3AE',
+        paper: '#F9F3E7',
+        'paper-line': '#EBE0C6',
       },
       fontFamily: {
         // Loaded via @expo-google-fonts/space-mono in app/_layout.tsx.
