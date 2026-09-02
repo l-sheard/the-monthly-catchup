@@ -190,7 +190,7 @@ export default function SignInScreen() {
       <ScrollView
         contentContainerClassName="flex-grow items-center justify-center px-6 py-10"
         keyboardShouldPersistTaps="handled">
-        <View className="w-full max-w-md items-center gap-3 rounded-2xl border border-paper-line bg-white px-8 py-10 shadow-sm shadow-black/5">
+        <View className="w-full max-w-lg items-center gap-3 rounded-2xl border border-paper-line bg-white px-8 py-10 shadow-sm shadow-black/5">
           <View className="mb-1 h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <Text className="text-3xl">💌</Text>
           </View>
