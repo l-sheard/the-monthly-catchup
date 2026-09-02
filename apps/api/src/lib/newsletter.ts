@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, or } from 'drizzle-orm';
 import {
   answers,
   cycles,
@@ -141,10 +141,13 @@ export async function sendNewsletterForCycle(
     .innerJoin(users, eq(users.id, groupMembers.userId))
     .where(eq(groupMembers.groupId, cycle.groupId));
 
+  // Defaults plus this cycle's own randomly-selected suggested question, if
+  // any — same query as GET /cycles/:id, see that route for why cycleId
+  // (not groupId) is what scopes a suggested question to just this month.
   const allQuestions = await db
     .select()
     .from(questions)
-    .where(eq(questions.isDefault, true))
+    .where(or(eq(questions.isDefault, true), eq(questions.cycleId, cycleId)))
     .orderBy(questions.sortOrder);
 
   const allAnswers = await db.select().from(answers).where(eq(answers.cycleId, cycleId));

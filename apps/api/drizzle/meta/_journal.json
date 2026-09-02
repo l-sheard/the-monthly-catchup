@@ -29,6 +29,13 @@
       "when": 1788340092372,
       "tag": "0003_majestic_barracuda",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788342124022,
+      "tag": "0004_sloppy_pixie",
+      "breakpoints": true
     }
   ]
 }

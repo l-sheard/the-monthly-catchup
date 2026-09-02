@@ -52,9 +52,14 @@ export const submitMeetupSuggestionInput = z.object({
   bodyText: z.string().min(1).max(500),
 });
 
+export const submitQuestionSuggestionInput = z.object({
+  promptText: z.string().min(1).max(280),
+});
+
 export type CreateGroupInput = z.infer<typeof createGroupInput>;
 export type JoinGroupInput = z.infer<typeof joinGroupInput>;
 export type SubmitAnswerInput = z.infer<typeof submitAnswerInput>;
 export type UploadMediaInput = z.infer<typeof uploadMediaInput>;
 export type SubmitMeetupSuggestionInput = z.infer<typeof submitMeetupSuggestionInput>;
 export type UpdateMediaCaptionInput = z.infer<typeof updateMediaCaptionInput>;
+export type SubmitQuestionSuggestionInput = z.infer<typeof submitQuestionSuggestionInput>;

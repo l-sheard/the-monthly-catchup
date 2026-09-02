@@ -1,7 +1,11 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { and, eq, inArray } from 'drizzle-orm';
-import { submitAnswerInput, submitMeetupSuggestionInput } from '@stay-in-touch/shared/validators';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import {
+  submitAnswerInput,
+  submitMeetupSuggestionInput,
+  submitQuestionSuggestionInput,
+} from '@stay-in-touch/shared/validators';
 import {
   answers,
   cycles,
@@ -10,6 +14,7 @@ import {
   media,
   meetupSuggestions,
   questions,
+  suggestedQuestions,
   users,
 } from '@stay-in-touch/shared/schema';
 import type { MediaView } from '@stay-in-touch/shared';
@@ -39,10 +44,14 @@ cyclesRoute.get('/:id', async (c) => {
 
   const [group] = await db.select().from(groups).where(eq(groups.id, cycle.groupId)).limit(1);
 
+  // Defaults, shared across every cycle, plus this cycle's own randomly-
+  // selected suggested question, if it got one (see jobs/open-cycles.ts) —
+  // scoped by cycleId, not groupId, so it doesn't carry over into future
+  // cycles for the same group.
   const cycleQuestions = await db
     .select()
     .from(questions)
-    .where(eq(questions.isDefault, true))
+    .where(or(eq(questions.isDefault, true), eq(questions.cycleId, cycleId)))
     .orderBy(questions.sortOrder);
 
   const myAnswerRows = await db
@@ -98,6 +107,12 @@ cyclesRoute.get('/:id', async (c) => {
     .innerJoin(users, eq(users.id, groupMembers.userId))
     .where(eq(groupMembers.groupId, cycle.groupId));
 
+  const questionSuggestionRows = await db
+    .select({ id: suggestedQuestions.id, promptText: suggestedQuestions.promptText, authorName: users.name })
+    .from(suggestedQuestions)
+    .innerJoin(users, eq(users.id, suggestedQuestions.userId))
+    .where(and(eq(suggestedQuestions.groupId, cycle.groupId), isNull(suggestedQuestions.usedInCycleId)));
+
   const response: CycleDetailResponse = {
     cycle: {
       ...cycle,
@@ -110,6 +125,7 @@ cyclesRoute.get('/:id', async (c) => {
     myMedia,
     meetupSuggestions: suggestionRows,
     members: memberRows,
+    questionSuggestions: questionSuggestionRows,
   };
 
   return c.json(response);
@@ -161,6 +177,35 @@ cyclesRoute.post(
     const [suggestion] = await db
       .insert(meetupSuggestions)
       .values({ cycleId, userId, bodyText })
+      .returning();
+
+    return c.json({ suggestion }, 201);
+  },
+);
+
+cyclesRoute.post(
+  '/:id/question-suggestions',
+  zValidator('json', submitQuestionSuggestionInput),
+  async (c) => {
+    const db = c.get('db');
+    const userId = c.get('userId');
+    const cycleId = c.req.param('id');
+    const { promptText } = c.req.valid('json');
+
+    const [cycle] = await db.select().from(cycles).where(eq(cycles.id, cycleId)).limit(1);
+    if (!cycle) return c.json({ error: 'Cycle not found' }, 404);
+
+    try {
+      await assertGroupMember(db, cycle.groupId, userId);
+    } catch {
+      return c.json({ error: 'Not a member of this group' }, 403);
+    }
+
+    // Scoped by groupId, not cycleId — it's a pitch for a future month, not
+    // this one (see jobs/open-cycles.ts for where it actually gets used).
+    const [suggestion] = await db
+      .insert(suggestedQuestions)
+      .values({ groupId: cycle.groupId, userId, promptText })
       .returning();
 
     return c.json({ suggestion }, 201);

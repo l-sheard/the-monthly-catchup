@@ -55,6 +55,12 @@ export interface MediaView {
   caption: string | null;
 }
 
+export interface QuestionSuggestionView {
+  id: string;
+  authorName: string;
+  promptText: string;
+}
+
 export interface CycleDetailResponse {
   cycle: Cycle;
   groupName: string;
@@ -63,4 +69,7 @@ export interface CycleDetailResponse {
   myMedia: Record<string, MediaView[]>; // questionId -> attached media
   meetupSuggestions: MeetupSuggestionView[];
   members: GroupMemberView[];
+  // Not-yet-used suggestions for a future month's question, so members can
+  // see what's already been pitched before adding their own.
+  questionSuggestions: QuestionSuggestionView[];
 }

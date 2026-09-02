@@ -44,6 +44,8 @@ export default function CycleDetailScreen() {
   const [sendResult, setSendResult] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [newsletters, setNewsletters] = useState<NewsletterSummary[] | null>(null);
+  const [questionSuggestionInput, setQuestionSuggestionInput] = useState('');
+  const [addingQuestionSuggestion, setAddingQuestionSuggestion] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -125,6 +127,23 @@ export default function CycleDetailScreen() {
       setError(err instanceof Error ? err.message : 'Failed to add suggestion');
     } finally {
       setAddingSuggestion(false);
+    }
+  };
+
+  const addQuestionSuggestion = async () => {
+    if (!questionSuggestionInput.trim() || !data) return;
+    setAddingQuestionSuggestion(true);
+    try {
+      await apiFetch(`/cycles/${data.cycle.id}/question-suggestions`, {
+        method: 'POST',
+        body: JSON.stringify({ promptText: questionSuggestionInput.trim() }),
+      });
+      setQuestionSuggestionInput('');
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add suggestion');
+    } finally {
+      setAddingQuestionSuggestion(false);
     }
   };
 
@@ -281,6 +300,41 @@ export default function CycleDetailScreen() {
                 </View>
               </View>
             )}
+
+            <View className={`gap-3 p-5 ${CARD}`}>
+              <Text className="font-mono-bold text-charcoal">💡 Suggest a question for next month</Text>
+              <Text className="font-mono text-sm text-charcoal/60">
+                Each new month, one pending suggestion gets picked at random and added to that
+                month's questions.
+              </Text>
+              {data.questionSuggestions.length > 0 && (
+                <View className="gap-2">
+                  {data.questionSuggestions.map((s) => (
+                    <View key={s.id} className="rounded-xl bg-sand px-3 py-2">
+                      <Text className="font-mono text-sm text-charcoal">
+                        <Text className="font-mono-bold">{s.authorName}: </Text>
+                        {s.promptText}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              <View className="flex-row gap-2">
+                <TextInput
+                  value={questionSuggestionInput}
+                  onChangeText={setQuestionSuggestionInput}
+                  placeholder="e.g. What's your comfort rewatch?"
+                  placeholderTextColor={PLACEHOLDER}
+                  className="flex-1 rounded-xl border border-sand-line bg-sand px-4 py-3 font-mono text-charcoal"
+                />
+                <Pressable
+                  disabled={addingQuestionSuggestion}
+                  onPress={addQuestionSuggestion}
+                  className="items-center justify-center rounded-full bg-primary px-4 py-3 shadow-sm shadow-primary/20 active:opacity-85 disabled:opacity-50">
+                  <Text className="font-mono-bold text-white">Suggest</Text>
+                </Pressable>
+              </View>
+            </View>
 
             <View className={`gap-2 p-5 ${CARD}`}>
               <Text className="font-mono-bold text-charcoal">💌 Newsletter</Text>

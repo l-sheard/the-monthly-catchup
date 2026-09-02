@@ -75,10 +75,36 @@ export const cycles = pgTable(
 export const questions = pgTable('questions', {
   id: uuid('id').primaryKey().defaultRandom(),
   groupId: uuid('group_id').references(() => groups.id, { onDelete: 'cascade' }),
+  // Set only for a one-off question materialized from a member's suggestion
+  // (see suggestedQuestions below) — scopes it to exactly the one cycle it
+  // was drawn for, unlike groupId alone, which would carry it forward into
+  // every future cycle for that group.
+  cycleId: uuid('cycle_id').references(() => cycles.id, { onDelete: 'cascade' }),
   promptText: text('prompt_text').notNull(),
   type: questionType('type').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
   isDefault: boolean('is_default').notNull().default(false),
+});
+
+// A member's pitch for a future month's question. openCyclesForToday draws
+// one at random per group (per newly-opened cycle) from whichever of these
+// haven't been used yet, and materializes it as a real `questions` row
+// scoped to that cycle — answers.questionId has a FK to questions.id, so it
+// has to become a real question to be answerable at all, not just be read
+// out of this table directly.
+export const suggestedQuestions = pgTable('suggested_questions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id')
+    .notNull()
+    .references(() => groups.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  promptText: text('prompt_text').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  // Null until randomly picked; excluded from both the random draw and the
+  // "pending suggestions" list once set.
+  usedInCycleId: uuid('used_in_cycle_id').references(() => cycles.id, { onDelete: 'set null' }),
 });
 
 export const answers = pgTable(
